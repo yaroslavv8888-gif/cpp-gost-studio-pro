@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { remapCopiedControl } from './src/engine/graphEditing';
+import { remapCopiedControl, numericBranchLabels } from './src/engine/graphEditing';
 const control = {kind:'if' as const,joinId:'j',yesId:'y',noId:'n'};
 const ids = new Map([['j','j2'],['y','y2'],['n','n2']]);
 assert.equal(remapCopiedControl(control,ids)?.yesId,'y2');
@@ -8,3 +8,6 @@ assert.equal(remapCopiedControl(control,new Map([['y','y2']])),undefined);
 const post = {kind:'dowhile' as const,joinId:'j',bodyId:'y',conditionId:'n',keyword:'n'};
 assert.equal(remapCopiedControl(post,ids)?.keyword,'n2');
 console.log('Copied control references remapped; incomplete regions discard metadata.');
+const migrated=numericBranchLabels([{id:'e',from:'a',to:'b',fromEdge:null,toEdge:null,fromPort:'bottom',toPort:'top',leftLabel:'Нет',rightLabel:'Да',style:'ortho',bendOffset:0}]);
+assert.equal(migrated[0].leftLabel,'0');assert.equal(migrated[0].rightLabel,'1');
+assert.equal(numericBranchLabels([{...migrated[0],rightLabel:'Данные готовы'}])[0].rightLabel,'Данные готовы');

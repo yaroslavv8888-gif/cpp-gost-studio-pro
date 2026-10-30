@@ -589,8 +589,8 @@ export function buildFlowFromCpp(
         shiftSubtree(leftNodes, Math.min(cx - d.w / 2 - 84, cx - 64 - (lb?.maxX || 0)));
         shiftSubtree(rightNodes, Math.max(cx + d.w / 2 + 84, cx + 64 - (rb?.minX || 0)));
         join.y = Math.max(top, yes.bottom, no.bottom) + GAP;
-        edge(d, yes.first || join, { fromPort: 'left', toPort: yes.first ? 'top' : 'left', rightLabel: 'Да' });
-        edge(d, no.first || join, { fromPort: 'right', toPort: no.first ? 'top' : 'right', rightLabel: 'Нет', style: no.first ? 'ortho' : 'bypass_right' });
+        edge(d, yes.first || join, { fromPort: 'left', toPort: yes.first ? 'top' : 'left', rightLabel: '1' });
+        edge(d, no.first || join, { fromPort: 'right', toPort: no.first ? 'top' : 'right', rightLabel: '0', style: no.first ? 'ortho' : 'bypass_right' });
         if (yes.first && yes.normal && yes.last) edge(yes.last, join, { toPort: 'left' });
         if (no.first && no.normal && no.last) edge(no.last, join, { toPort: 'right' });
         d.control = { kind: 'if', joinId: join.id, yesId: yes.first?.id, noId: no.first?.id, expression: item.cond };
@@ -617,7 +617,7 @@ export function buildFlowFromCpp(
           const ownDiamonds: FlowNode[] = [];
           for (const label of g.labels.filter(l => l !== 'default')) {
             const d = node('decision', `case ${label}:`, cx, y, g.sourceLines);
-            edge(spine, d, { rightLabel: spine === header ? '' : 'Нет' });
+            edge(spine, d, { rightLabel: spine === header ? '' : '0' });
             diamonds.push({d,index}); ownDiamonds.push(d); spine=d;
             y += d.h + GAP;
           }
@@ -654,9 +654,21 @@ export function buildFlowFromCpp(
           caseMeta.push({labels:g.labels,hasBraces:g.hasBraces,labelIds:g.labels.map(label=>diamonds.find(x=>x.index===index&&x.d.text===`case ${label}:`)?.d.id||''),entryId:entry.id,stopId:next.id});
           y=Math.max(y,bottom);
         });
-        diamonds.forEach(({d,index})=>edge(d,entries[index],{fromPort:'right',toPort:'left',rightLabel:'Да'}));
+        diamonds.forEach(({d,index})=>edge(d,entries[index],{fromPort:'right',toPort:'left',rightLabel:'1'}));
         const defaultIndex=groups.findIndex(g=>g.labels.includes('default'));
-        edge(spine,defaultIndex<0?join:entries[defaultIndex],{rightLabel:spine===header?'':'Нет',toPort:defaultIndex<0?'top':'left'});
+        if(defaultIndex>=0){
+          const entry=entries[defaultIndex];
+          const size=calcAutoSize('decision','default:');
+          const defaultY=Math.max(spine.y+spine.h+GAP,entry.y+1-size.h/2);
+          const fallback=node('decision','default:',cx,defaultY,groups[defaultIndex].sourceLines);
+          edge(spine,fallback,{rightLabel:spine===header?'':'0'});
+          edge(fallback,entry,{fromPort:'right',toPort:'left',rightLabel:'1'});
+          const labelIndex=groups[defaultIndex].labels.indexOf('default');
+          caseMeta[defaultIndex].labelIds![labelIndex]=fallback.id;
+          spine=fallback;
+          y=Math.max(y,fallback.y+fallback.h+GAP);
+        }
+        edge(spine,join,{rightLabel:spine===header?'':'0',toPort:'top'});
         join.y=y+GAP;
         if(options.exampleStyle)node('brace','}',cx-42,join.y-38,item.sourceLines);
         header.control = { kind: 'switch', joinId: join.id, expression: item.expr, cases: caseMeta };
@@ -685,21 +697,21 @@ export function buildFlowFromCpp(
         const res = build(item.body || [], cx, bodyTop, null,
           [...scopes, { breakTarget: exit, continueTarget: conditionJoin }], functionExit);
         const bodyEntry = res.first || conditionJoin;
-        edge(head, bodyEntry, { rightLabel: post ? '' : 'Да', toPort: bodyEntry === conditionJoin && !post ? 'left' : 'top', style: bodyEntry === conditionJoin && !post ? 'loop_left' : 'ortho' });
+        edge(head, bodyEntry, { rightLabel: post ? '' : '1', toPort: bodyEntry === conditionJoin && !post ? 'left' : 'top', style: bodyEntry === conditionJoin && !post ? 'loop_left' : 'ortho' });
         y = Math.max(bodyTop, res.bottom) + GAP;
         if (post) {
           conditionJoin.y = y;
           if (res.normal && res.last) edge(res.last, conditionJoin);
           const cond = node('decision', options.showKeywords ? `while (${item.cond})` : item.cond || '', cx, y + GAP, item.sourceLines);
           edge(conditionJoin, cond);
-          edge(cond, head, { fromPort: 'left', toPort: 'left', rightLabel: 'Да', style: 'loop_left' });
+          edge(cond, head, { fromPort: 'left', toPort: 'left', rightLabel: '1', style: 'loop_left' });
           exit.y = cond.y + cond.h + GAP;
-          edge(cond, exit, { fromPort: 'right', toPort: 'right', rightLabel: 'Нет', style: 'bypass_right' });
+          edge(cond, exit, { fromPort: 'right', toPort: 'right', rightLabel: '0', style: 'bypass_right' });
           head.control = { kind: 'dowhile', joinId: exit.id, bodyId: res.first?.id, conditionId: cond.id, expression: item.cond, keyword: conditionJoin.id };
         } else {
           if (res.normal && res.last) edge(res.last, conditionJoin, { toPort: 'left', style: 'loop_left' });
           exit.y = y + GAP;
-          edge(head, exit, { fromPort: 'right', toPort: 'right', rightLabel: 'Нет', style: 'bypass_right' });
+          edge(head, exit, { fromPort: 'right', toPort: 'right', rightLabel: '0', style: 'bypass_right' });
           head.control = { kind: 'loop', joinId: exit.id, bodyId: res.first?.id, keyword: item.loopType, expression: item.header };
         }
         last = exit;

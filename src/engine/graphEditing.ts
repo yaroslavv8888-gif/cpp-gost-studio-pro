@@ -1,4 +1,10 @@
-import { FlowNode } from '../types/flow';
+import { FlowNode, FlowEdge } from '../types/flow';
+
+/** Upgrade old saved labels without changing custom branch descriptions. */
+export function numericBranchLabels(edges: FlowEdge[]): FlowEdge[] {
+  const label=(value:string)=>/^да$/i.test(value.trim())?'1':/^нет$/i.test(value.trim())?'0':value;
+  return edges.map(e=>({...e,leftLabel:label(e.leftLabel),rightLabel:label(e.rightLabel)}));
+}
 
 /** A copied region may reference only copied nodes, never the original region. */
 export function remapCopiedControl(control: FlowNode['control'], ids: Map<string, string>): FlowNode['control'] {

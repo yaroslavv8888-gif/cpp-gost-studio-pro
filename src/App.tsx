@@ -38,7 +38,7 @@ import {
 } from './engine/orthoRouter';
 import { buildFlowFromCpp, synthesizeCppFromGraph } from './engine/cppParserAndBuilder';
 import { applyGostAutoFix, validateGostFlowchart } from './engine/gostValidator';
-import { remapCopiedControl } from './engine/graphEditing';
+import { remapCopiedControl, numericBranchLabels } from './engine/graphEditing';
 import { CodeEditorPanel } from './components/CodeEditorPanel';
 import { RightPaletteAndValidator } from './components/RightPaletteAndValidator';
 
@@ -325,6 +325,7 @@ export default function App() {
     })() : null);
 
     if (candidate && candidate.nodes && candidate.nodes.length > 0) {
+      candidate.edges = numericBranchLabels(candidate.edges || []);
       setCode(candidate.code || SWITCH_CASE_CODE);
       setNodes(candidate.nodes);
       setEdges(candidate.edges || []);

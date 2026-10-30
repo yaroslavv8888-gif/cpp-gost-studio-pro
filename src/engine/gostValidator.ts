@@ -91,7 +91,7 @@ export function validateGostFlowchart(nodes: FlowNode[], edges: FlowEdge[]): Gos
             title: 'Не подписаны ветви выхода из «Решения»',
             description: isCaseNode
               ? `У выходов из условия «${dec.text.split('\n')[0]}» отсутствуют подписи условий («1» / «0»).`
-              : `У выходов из условия «${dec.text.split('\n')[0]}» отсутствуют подписи условий («Да» / «Нет»).`,
+              : `У выходов из условия «${dec.text.split('\n')[0]}» отсутствуют подписи условий («1» / «0»).`,
             nodeId: dec.id,
             fixType: 'add_decision_labels',
           });
@@ -340,7 +340,7 @@ export function applyGostAutoFix(
         const usedYes = outs.some((e) => /да|yes|true|1/i.test(e.rightLabel || e.leftLabel));
         outs.forEach((e, idx) => {
           if (!e.rightLabel.trim() && !e.leftLabel.trim()) {
-            e.rightLabel = idx === 0 && !usedYes ? 'Да' : 'Нет';
+            e.rightLabel = idx === 0 && !usedYes ? '1' : '0';
           }
         });
       }

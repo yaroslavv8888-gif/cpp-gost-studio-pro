@@ -67,8 +67,8 @@ console.log(`Parser topology, layout and synthesis: ${runs} option/fixture combi
 // Current edges override generated branch references after user edits.
 const edited=buildFlowFromCpp('int main(){int x=0;if(x){x=1;}else{x=2;}return 0;}',base);
 const decision=edited.nodes.find(n=>n.control?.kind==='if')!;
-const yes=edited.edges.find(e=>e.from===decision.id&&e.rightLabel==='Да')!;
-const no=edited.edges.find(e=>e.from===decision.id&&e.rightLabel==='Нет')!;
+const yes=edited.edges.find(e=>e.from===decision.id&&e.rightLabel==='1')!;
+const no=edited.edges.find(e=>e.from===decision.id&&e.rightLabel==='0')!;
 const removed=synthesizeCppFromGraph(edited.nodes,edited.edges.filter(e=>e.id!==yes.id)).code;
 assert.ok(!removed.includes('x=1;'));
 [yes.to,no.to]=[no.to,yes.to];
@@ -93,13 +93,13 @@ for(const [code,kind] of [
   ['int main(){int x=0;switch(x){case 0:x++;break;default:x+=2;}return x;}','switch']
 ] as const){
   const g=buildFlowFromCpp(code,base);const control=g.nodes.find(n=>n.control?.kind===kind)!;
-  const outgoing=g.edges.filter(e=>e.from===control.id);const bodyEdge=outgoing.find(e=>e.rightLabel==='Да')||outgoing[0];
+  const outgoing=g.edges.filter(e=>e.from===control.id);const bodyEdge=outgoing.find(e=>e.rightLabel==='1')||outgoing[0];
   const rebuilt=synthesizeCppFromGraph(g.nodes,g.edges.filter(e=>e.id!==bodyEdge.id)).code;
   assert.ok(!rebuilt.includes('x++;'),kind+' detached body must not synthesize');
 }
 const disconnectedCase=buildFlowFromCpp('int main(){int x=0;switch(x){case 0:x++;break;default:x+=2;}return x;}',base);
 const caseDecision=disconnectedCase.nodes.find(n=>n.text==='case 0:')!;
-const caseBodyEdge=disconnectedCase.edges.find(e=>e.from===caseDecision.id&&e.rightLabel==='Да')!;
+const caseBodyEdge=disconnectedCase.edges.find(e=>e.from===caseDecision.id&&e.rightLabel==='1')!;
 assert.ok(!synthesizeCppFromGraph(disconnectedCase.nodes,disconnectedCase.edges.filter(e=>e.id!==caseBodyEdge.id)).code.includes('x++;'));
 const caseEntry=disconnectedCase.nodes.find(n=>n.control?.kind==='switch')!.control!.cases![0].entryId;
 const bodyEntryEdge=disconnectedCase.edges.find(e=>e.to===caseEntry)!;
