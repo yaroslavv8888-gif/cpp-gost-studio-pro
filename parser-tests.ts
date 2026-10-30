@@ -9,8 +9,8 @@ for(const text of ['std::twice(2);','obj.twice(2);','ptr->twice(2);','"twice(2)"
 for (const groupStmts of [false, true]) {
   const own = buildFlowFromCpp('int abs(int x){if(x<0){return abs(-x);}return x;}int twice(int x){return x*2;}int main(){int x=twice(2);x=abs(x);x=std::abs(x);v.abs(x);std::sort(a,b);v.push_back(x);setlocale(LC_ALL,"Russian");cout << x << endl;return 0;}', {...base, groupStmts});
   for (const text of ['int x=twice(2);','x=abs(x);','return abs(-x);']) assert.equal(own.nodes.find(n=>n.text===text)?.type,'predefined',text);
-  for (const node of own.nodes.filter(n=>n.type==='predefined')) assert.match(node.text,/twice\(2\)|(?:^|=)abs\(x\)|return abs\(-x\)/);
-  for (const text of ['int main()','int twice(int x)','int abs(int x)']) assert.equal(own.nodes.find(n=>n.text===text)?.type,'process',text);
+  for (const node of own.nodes.filter(n=>n.type==='predefined')) assert.match(node.text,/^int (?:main|twice|abs)\(|twice\(2\)|(?:^|=)abs\(x\)|return abs\(-x\)/);
+  for (const text of ['int main()','int twice(int x)','int abs(int x)']) assert.equal(own.nodes.find(n=>n.text===text)?.type,'predefined',text);
   const rebuilt = synthesizeCppFromGraph(own.nodes,own.edges).code;
   assert.match(rebuilt,/int twice\(int x\);/);
   assert.match(rebuilt,/int twice\(int x\)\s*\{/);
@@ -18,6 +18,8 @@ for (const groupStmts of [false, true]) {
   const saved = own.nodes.map(n=>n.type==='process'?{...n,type:'predefined' as const}:n);
   const restored = normalizeSubprogramShapes(saved,own.edges);
   assert.deepEqual(restored.filter(n=>n.type==='predefined').map(n=>n.text),own.nodes.filter(n=>n.type==='predefined').map(n=>n.text));
+  const plainHeaders = own.nodes.map(n=>/^int (?:main|twice|abs)\([^;]*\)$/.test(n.text)?{...n,type:'process' as const}:n);
+  assert.deepEqual(normalizeSubprogramShapes(plainHeaders,own.edges),own.nodes,'saved function headers regain side lines');
 }
 const fixtures = [LOOP_IF_CODE, TRIANGLE_IF_CODE, COMPLEX_CPP_CODE, SWITCH_CASE_CODE,
   'int main(){int x=0;switch(x){case 0:if(x){foo();}else{while(x){x--;}}case 1:for(int i=0;i<3;i++){bar(i);}break;default:do{x++;}while(x<5);}return 0;}',

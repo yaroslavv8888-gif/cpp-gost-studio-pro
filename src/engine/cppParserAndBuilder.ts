@@ -761,7 +761,7 @@ export function buildFlowFromCpp(
     const endJoin = node('connector', '', 0, 0, [fn.closeBraceLine]);
     const end = node('terminator', finalReturn?.text || 'Конец', 0, 0, finalReturn?.sourceLines || [fn.closeBraceLine]);
     // Preserve actual function signatures even when the decorative example style is disabled.
-    const signature = node('process', fn.header, 0, start.y + start.h + GAP, fn.headerLines);
+    const signature = node('predefined', fn.header, 0, start.y + start.h + GAP, fn.headerLines);
     const signatureEdge = edge(start, signature);
     if (index === 0) {
       const headers = rawCode.split('\n').map((text, i) => ({ text: text.trim(), i: i + 1 })).filter(l => l.text.startsWith('#include') || /^using\s+namespace\b/.test(l.text));

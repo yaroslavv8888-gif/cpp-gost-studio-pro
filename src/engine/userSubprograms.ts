@@ -1,6 +1,6 @@
 import { FlowEdge, FlowNode } from '../types/flow';
 
-/** A definition header is not a call to a separately defined process. */
+/** Recognize the function headers retained for reverse C++ generation. */
 export function functionHeaderName(text: string): string | undefined {
   return text.trim().match(/^(?:(?:unsigned|long|short|const|static|inline)\s+)*(?:void|int|double|float|char|bool|string|auto|size_t)\s*\*?\s+([A-Za-z_]\w*)\s*\([^;{}]*\)$/)?.[1];
 }
@@ -26,7 +26,13 @@ export function hasUserSubprogramCall(code: string, names: Set<string>): boolean
 /** Update previous automatic classifications without changing other shapes. */
 export function normalizeSubprogramShapes(nodes: FlowNode[], edges: FlowEdge[]): FlowNode[] {
   const names = userSubprogramNames(nodes, edges);
-  return nodes.map(n => n.type === 'predefined' &&
-    (functionHeaderName(n.text) || !hasUserSubprogramCall(n.text, names))
-    ? { ...n, type: 'process' } : n);
+  const headers = new Set(edges.filter(e => e.style !== 'dashed' &&
+    nodes.some(n => n.id === e.from && n.type === 'terminator' && /^начало(?:\s|$)/i.test(n.text.trim())))
+    .map(e => e.to));
+  return nodes.map(n => {
+    if (headers.has(n.id) && functionHeaderName(n.text) && (n.type === 'process' || n.type === 'predefined'))
+      return { ...n, type: 'predefined' };
+    return n.type === 'predefined' && !hasUserSubprogramCall(n.text, names)
+      ? { ...n, type: 'process' } : n;
+  });
 }
