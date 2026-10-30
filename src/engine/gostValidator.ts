@@ -1,9 +1,10 @@
+import { hasUserSubprogramCall, userSubprogramNames } from './userSubprograms';
 import { FlowEdge, FlowNode, GostIssue } from '../types/flow';
 import { calcAutoSize, getEdgePoints, TRACK_GAP, sharesCollector } from './orthoRouter';
 
 /** Construction/allocation is an operation, not a call to a predefined routine.
  * Check each statement so grouped declarations cannot hide later function calls. */
-function hasRoutineCall(code: string): boolean {
+function hasRoutineCall(code: string, names: Set<string>): boolean {
   return code.split(';').some(raw => {
     const statement = raw.trim();
     if (!statement) return false;
@@ -17,7 +18,7 @@ function hasRoutineCall(code: string): boolean {
       /\b[A-Za-z_]\w*\s*(?:\[[^\]]*\]\s*)+\s*=\s*\{/.test(statement);
     const allocation = /^(?:delete\s*(?:\[\s*\])?\s+|(?:[\s\S]*?=\s*)?new\s+)/.test(statement);
     if (directConstruction || arrayInitialization || allocation) return false;
-    return /\b(?!(?:if|while|for|switch|sizeof|alignof|decltype|static_cast|dynamic_cast|reinterpret_cast|const_cast)\b)[A-Za-z_]\w*(?:\s*<[^;{}]*>)?\s*\(/.test(statement);
+    return hasUserSubprogramCall(statement, names);
   });
 }
 
@@ -237,6 +238,7 @@ export function validateGostFlowchart(nodes: FlowNode[], edges: FlowEdge[]): Gos
 
 /** Project constraints intentionally stricter than the cited symbol definitions. */
 function validateProjectRules(functional: FlowNode[], ends: FlowNode[], nodes: FlowNode[], edges: FlowEdge[], issues: GostIssue[]) {
+  const userNames = userSubprogramNames(nodes, edges);
   const flow = edges.filter(e => e.style !== 'dashed');
   const byId = new Map(nodes.map(n => [n.id,n]));
   const junction = (n: FlowNode) => n.type === 'connector' && !n.text.trim() && n.w <= 8 && n.h <= 8;
@@ -261,8 +263,8 @@ function validateProjectRules(functional: FlowNode[], ends: FlowNode[], nodes: F
           report(`invalid_process_port_${e.id}`, 'Возврат или ветвь входит сбоку в процесс', 'Сведите ветвь с основной линией перед блоком. Последовательный вход слева допустим.', n.id,e.id);
       }
       const code=n.text.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\/\/[^\n]*|\/\*[\s\S]*?\*\//g,'');
-      if (hasRoutineCall(code))
-        issues.push({id:`missing_predefined_${n.id}`,severity:'warning',gostClause:'п. 3.2.2.1 ГОСТ 19.701-90; правило проекта: вызовы функций',title:'Вызов функции в обычном процессе',description:'Используйте символ «Предопределённый процесс» для вызова функции.',nodeId:n.id});
+      if (hasRoutineCall(code, userNames))
+        issues.push({id:`missing_predefined_${n.id}`,severity:'warning',gostClause:'п. 3.2.2.1 ГОСТ 19.701-90; правило проекта: вызовы пользовательских подпрограмм',title:'Вызов подпрограммы в обычном процессе',description:'Используйте символ «Предопределённый процесс» для вызова пользовательской подпрограммы, определённой отдельно.',nodeId:n.id});
     }
   }
   const groups=new Map<string,FlowNode[]>();

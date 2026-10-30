@@ -1,3 +1,4 @@
+import { normalizeSubprogramShapes } from './engine/userSubprograms';
 import { Workflow, PanelLeftClose, PanelLeftOpen, Undo2, Redo2, Frame, Pencil, AlignCenter, Clipboard, Download, ZoomIn, ZoomOut, Scan, Check } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -326,6 +327,7 @@ export default function App() {
 
     if (candidate && candidate.nodes && candidate.nodes.length > 0) {
       candidate.edges = numericBranchLabels(candidate.edges || []);
+      candidate.nodes = normalizeSubprogramShapes(candidate.nodes, candidate.edges);
       setCode(candidate.code || SWITCH_CASE_CODE);
       setNodes(candidate.nodes);
       setEdges(candidate.edges || []);

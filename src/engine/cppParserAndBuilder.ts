@@ -1,3 +1,4 @@
+import { functionHeaderName, hasUserSubprogramCall } from './userSubprograms';
 import { CodeGenOptions, EdgeStyle, FlowEdge, FlowNode, GostNodeType, PortSide } from '../types/flow';
 import { calcAutoSize, getSubtreeBounds, shiftSubtree, getEdgePoints } from './orthoRouter';
 
@@ -193,7 +194,7 @@ function classifySimpleStatement(rawStmt: string, userFuncNames: Set<string>, so
   if (/^(?:std::)?setlocale\s*\(/.test(stmt)) return { kind: 'setlocale', text: stmt, sourceLines };
   const declaration = /^(?:(?:const|static|constexpr|volatile|unsigned|signed|long|short)\s+)*(?:(?:std::)?(?:vector|array|deque|list|map|set|unordered_map|unordered_set|basic_string|string)\b|(?:int|double|float|long|short|char|bool|size_t|auto)\b)/.test(withoutLiterals);
   // Direct construction of a variable/container is a declaration, while a
-  // function call in an assignment initializer remains a predefined process.
+  // call to a user subprogram in an assignment remains a predefined process.
   const directInitialization = declaration && !withoutLiterals.includes('=');
   const allocation = /^(?:delete\s*(?:\[\s*\])?\s+|(?:[\s\S]*?=\s*)?new\s+)/.test(withoutLiterals)
     || (declaration && /=\s*new\b/.test(withoutLiterals));
@@ -201,7 +202,7 @@ function classifySimpleStatement(rawStmt: string, userFuncNames: Set<string>, so
   // element expression. Calls within an array/container initializer must not
   // turn its declaration into a separate control-flow/subprogram operation.
   if (declaration && withoutLiterals.includes('{')) return { kind: 'decl', text: stmt, sourceLines };
-  if (!directInitialization && !allocation && /(?:[A-Za-z_]\w*(?:::\w+)*)(?:\s*<[^;{}]*>)?\s*\(/.test(withoutLiterals)) {
+  if (!directInitialization && !allocation && hasUserSubprogramCall(withoutLiterals, userFuncNames)) {
     return { kind: 'subprogram', text: stmt, sourceLines };
   }
   if (/^setlocale\s*\(/.test(stmt)) {
@@ -725,7 +726,7 @@ export function buildFlowFromCpp(
         }
       } else {
         const text = item.text || '';
-        const returnCall = item.kind === 'return' && /[A-Za-z_]\w*\s*\(/.test(text.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g, ''));
+        const returnCall = item.kind === 'return' && hasUserSubprogramCall(text, names);
         const type: GostNodeType = item.kind === 'cin' || item.kind === 'cout' ? 'io' : item.kind === 'subprogram' || returnCall ? 'predefined' : 'process';
         const n = node(type, text, cx, y, item.sourceLines);
         attach(n);
@@ -760,7 +761,7 @@ export function buildFlowFromCpp(
     const endJoin = node('connector', '', 0, 0, [fn.closeBraceLine]);
     const end = node('terminator', finalReturn?.text || 'Конец', 0, 0, finalReturn?.sourceLines || [fn.closeBraceLine]);
     // Preserve actual function signatures even when the decorative example style is disabled.
-    const signature = node('predefined', fn.header, 0, start.y + start.h + GAP, fn.headerLines);
+    const signature = node('process', fn.header, 0, start.y + start.h + GAP, fn.headerLines);
     const signatureEdge = edge(start, signature);
     if (index === 0) {
       const headers = rawCode.split('\n').map((text, i) => ({ text: text.trim(), i: i + 1 })).filter(l => l.text.startsWith('#include') || /^using\s+namespace\b/.test(l.text));
@@ -850,7 +851,7 @@ export function synthesizeCppFromGraph(
   for (const start of clonedNodes.filter(n => n.type === 'terminator' && /^начало\s+/i.test(n.text))) {
     const target = edges.find(e => e.from === start.id && e.style !== 'dashed')?.to;
     const signature = target ? nodeMap.get(target) : undefined;
-    if (signature?.type === 'predefined') pushLine(signature.text.trim().replace(/;$/, '') + ';', [signature.id]);
+    if (signature && functionHeaderName(signature.text)) pushLine(signature.text.trim().replace(/;$/, '') + ';', [signature.id]);
   }
 
   // Outgoing edges helper (ignoring dashed comment edges)
@@ -1669,7 +1670,7 @@ export function synthesizeCppFromGraph(
         if (
           firstTarget &&
           (isMainHeaderLine(firstTarget.text) ||
-            (firstTarget.type === 'predefined' && /\([^)]*\)/.test(firstTarget.text)))
+            functionHeaderName(firstTarget.text))
         ) {
           const cleanHdr = firstTarget.text.trim().replace(/;$/, '');
           fnHeader = isMainHeaderLine(cleanHdr) ? 'int main()' : cleanHdr;

@@ -7,6 +7,9 @@ const e=(id:string,from:string,to:string,extra:Partial<FlowEdge>={}):FlowEdge=>(
 const ids=(ns:FlowNode[],es:FlowEdge[])=>validateGostFlowchart(ns,es).map(i=>i.id);
 const has=(ns:FlowNode[],es:FlowEdge[],prefix:string)=>assert(ids(ns,es).some(id=>id.startsWith(prefix)),prefix);
 const lacks=(ns:FlowNode[],es:FlowEdge[],prefix:string)=>assert(!ids(ns,es).some(id=>id.startsWith(prefix)),prefix);
+const ownGraph=buildFlowFromCpp('int calculate(int x){return x*2;}int main(){int result=calculate(2);result=std::abs(result);return 0;}',{exampleStyle:false,showKeywords:true,gostLoopBounds:false,groupStmts:false,gostNumbers:false,autoSyncCpp:true});
+lacks(ownGraph.nodes,ownGraph.edges,'missing_predefined_');
+has(ownGraph.nodes.map(node=>node.text==='int result=calculate(2);'?{...node,type:'process'}:node),ownGraph.edges,'missing_predefined_');
 const a=n('a','process','x=1',-100,0),b=n('b','process','x=2',100,0),target=n('t','process','x=3',0,150);
 has([a,b,target],[e('a','a','t'),e('b','b','t')],'multiple_inputs_');
 const j=n('j','connector','',0,100); j.w=2;j.h=2;
@@ -20,7 +23,7 @@ const decision=n('d','decision','x>0');
 has([decision,...[0,1,2,3].map(i=>n('o'+i,'process','x=1',i*150,200))],[0,1,2,3].map(i=>e('o'+i,'d','o'+i)),'decision_outputs_');
 has([a,target],[e('return','t','a',{style:'loop_left',toPort:'left'})],'invalid_process_port_');
 lacks([a,b],[e('seq','a','b',{fromPort:'right',toPort:'left'})],'invalid_process_port_');
-has([n('call','process','result = ns::calculate(x);')],[],'missing_predefined_');
+lacks([n('call','process','result = ns::calculate(x);')],[],'missing_predefined_');
 lacks([n('call','process','x = sizeof(int);')],[],'missing_predefined_');
 for (const text of [
  'std::vector<std::vector<int>> m(2, std::vector<int>(3, 1));',
@@ -44,7 +47,7 @@ for (const text of [
  'std::vector<int> values(3); result = calculate(x);',
  'ns::transform<int>(x);',
  'return calculate(x);',
-]) has([n('call','process',text)],[],'missing_predefined_');
+]) lacks([n('call','process',text)],[],'missing_predefined_');
 lacks([n('call','process','text = "call(x)";')],[],'missing_predefined_');
 for (const text of ['cin >> arr[i][j];', 'std::cout << arr[i][j][k] << std::endl;', 'cout << "line\\n";']) {
  const io=n('raw','io',text);

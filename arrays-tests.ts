@@ -33,8 +33,8 @@ for(const fixture of fixtures){
     }
     if(fixture.name==='vector_templates') for(const token of fixture.tokens.slice(0,2)) assert.equal(g.nodes.find(n=>n.text.includes(token))!.type,'process');
     if(fixture.name==='dynamic_array') for(const token of fixture.tokens.slice(0,2)) assert.equal(g.nodes.find(n=>n.text.includes(token))!.type,'process');
-    for(const n of g.nodes.filter(n=>/^(?:std::)?(?:sort|swap)\(/.test(n.text))) assert.equal(n.type,'predefined');
-    for(const n of g.nodes.filter(n=>/^a\.push_back\(/.test(n.text))) assert.equal(n.type,'predefined');
+    for(const n of g.nodes.filter(n=>/^(?:std::)?(?:sort|swap)\(/.test(n.text))) assert.equal(n.type,'process');
+    for(const n of g.nodes.filter(n=>/^a\.push_back\(/.test(n.text))) assert.equal(n.type,'process');
     const issues=validateGostFlowchart(g.nodes,g.edges).filter(i=>i.severity!=='ok');
     diagnostics.push(...issues.map(i=>fixture.name+': '+i.id));
     const rebuilt=synthesizeCppFromGraph(g.nodes,g.edges).code;

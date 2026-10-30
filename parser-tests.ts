@@ -1,7 +1,24 @@
 import assert from 'node:assert/strict';
 import { buildFlowFromCpp, synthesizeCppFromGraph } from './src/engine/cppParserAndBuilder';
+import { normalizeSubprogramShapes } from './src/engine/userSubprograms';
+import { hasUserSubprogramCall } from './src/engine/userSubprograms';
 import { LOOP_IF_CODE, TRIANGLE_IF_CODE, COMPLEX_CPP_CODE, SWITCH_CASE_CODE, type CodeGenOptions } from './src/types/flow';
 const base: CodeGenOptions = { exampleStyle: false, showKeywords: true, gostLoopBounds: false, groupStmts: false, gostNumbers: false, autoSyncCpp: true };
+assert(hasUserSubprogramCall('std::abs(twice(2));',new Set(['twice'])));
+for(const text of ['std::twice(2);','obj.twice(2);','ptr->twice(2);','"twice(2)";','/* twice(2) */']) assert(!hasUserSubprogramCall(text,new Set(['twice'])),text);
+for (const groupStmts of [false, true]) {
+  const own = buildFlowFromCpp('int abs(int x){if(x<0){return abs(-x);}return x;}int twice(int x){return x*2;}int main(){int x=twice(2);x=abs(x);x=std::abs(x);v.abs(x);std::sort(a,b);v.push_back(x);setlocale(LC_ALL,"Russian");cout << x << endl;return 0;}', {...base, groupStmts});
+  for (const text of ['int x=twice(2);','x=abs(x);','return abs(-x);']) assert.equal(own.nodes.find(n=>n.text===text)?.type,'predefined',text);
+  for (const node of own.nodes.filter(n=>n.type==='predefined')) assert.match(node.text,/twice\(2\)|(?:^|=)abs\(x\)|return abs\(-x\)/);
+  for (const text of ['int main()','int twice(int x)','int abs(int x)']) assert.equal(own.nodes.find(n=>n.text===text)?.type,'process',text);
+  const rebuilt = synthesizeCppFromGraph(own.nodes,own.edges).code;
+  assert.match(rebuilt,/int twice\(int x\);/);
+  assert.match(rebuilt,/int twice\(int x\)\s*\{/);
+  assert.match(rebuilt,/x=std::abs\(x\);/);
+  const saved = own.nodes.map(n=>n.type==='process'?{...n,type:'predefined' as const}:n);
+  const restored = normalizeSubprogramShapes(saved,own.edges);
+  assert.deepEqual(restored.filter(n=>n.type==='predefined').map(n=>n.text),own.nodes.filter(n=>n.type==='predefined').map(n=>n.text));
+}
 const fixtures = [LOOP_IF_CODE, TRIANGLE_IF_CODE, COMPLEX_CPP_CODE, SWITCH_CASE_CODE,
   'int main(){int x=0;switch(x){case 0:if(x){foo();}else{while(x){x--;}}case 1:for(int i=0;i<3;i++){bar(i);}break;default:do{x++;}while(x<5);}return 0;}',
   'int f(int a){if(a){return 1;}else{return 2;}}int main(){return f(2);}',
@@ -55,8 +72,8 @@ const firstTail=fall.nodes.find(n=>n.text==='x++;')!;
 assert.equal(fall.edges.find(e=>e.from===firstTail.id)?.to,meta.cases![1].entryId);
 for(const n of fall.nodes.filter(n=>n.type==='process'&&n.text.startsWith('x'))) assert.ok(fall.edges.filter(e=>e.to===n.id).every(e=>e.toPort==='top'||e.toPort==='left'));
 const calls=buildFlowFromCpp('int main(){x=external(2);std::sort(a,b);s="literal(";return 0;}',base);
-assert.equal(calls.nodes.find(n=>n.text==='x=external(2);')?.type,'predefined');
-assert.equal(calls.nodes.find(n=>n.text==='std::sort(a,b);')?.type,'predefined');
+assert.equal(calls.nodes.find(n=>n.text==='x=external(2);')?.type,'process');
+assert.equal(calls.nodes.find(n=>n.text==='std::sort(a,b);')?.type,'process');
 assert.equal(calls.nodes.find(n=>n.text==='s="literal(";')?.type,'process');
 const io=buildFlowFromCpp(fixtures[8],base);
 assert.ok(synthesizeCppFromGraph(io.nodes,io.edges).code.includes('"http://host/* literal */"'));
@@ -113,10 +130,10 @@ const lexical=buildFlowFromCpp(lexicalCode,base);
 for(const text of ['constexpr int a[2][2]{{1,2},{3,4}};','std::array<int,2> b{1,2};','cin >> a[i >> 1][0];','cout << "<< >>" << a[0][1] << endl;']) assert.ok(lexical.nodes.some(n=>n.text===text),'intact '+text);
 const range=lexical.nodes.find(n=>n.control?.kind==='loop')!;
 assert.equal(range.type,'prep');assert.equal(range.control!.expression,'auto x : std::array<int,2>{1,2}');
-assert.equal(lexical.nodes.find(n=>n.text==='b.push_back(x);')!.type,'predefined');
+assert.equal(lexical.nodes.find(n=>n.text==='b.push_back(x);')!.type,'process');
 const lexicalRebuilt=synthesizeCppFromGraph(lexical.nodes,lexical.edges).code;
 assert.ok(lexicalRebuilt.includes('cin >> a[i >> 1][0];'));
 assert.ok(lexicalRebuilt.includes('cout << "<< >>" << a[0][1] << endl;'));
 const initializedCalls=buildFlowFromCpp('int main(){int a[2]={abs(-1),abs(-2)};std::vector<int> v{abs(-3),abs(-4)};int scalar=abs(-5);return 0;}',base);
 for(const text of ['int a[2]={abs(-1),abs(-2)};','std::vector<int> v{abs(-3),abs(-4)};']) assert.equal(initializedCalls.nodes.find(n=>n.text===text)!.type,'process');
-assert.equal(initializedCalls.nodes.find(n=>n.text==='int scalar=abs(-5);')!.type,'predefined');
+assert.equal(initializedCalls.nodes.find(n=>n.text==='int scalar=abs(-5);')!.type,'process');
