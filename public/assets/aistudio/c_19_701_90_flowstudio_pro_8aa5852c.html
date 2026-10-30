@@ -1,0 +1,4243 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C++ ГОСТ 19.701-90 FlowStudio — Pro</title>
+  <style>
+    :root {
+      --ui-bg: #141417;
+      --ui-panel: #1f1f24;
+      --ui-border: #32323a;
+      --ui-text: #f4f4f6;
+      --ui-muted: #9ca3af;
+      --ui-accent: #3b82f6;
+      --ui-accent-hover: #2563eb;
+      /* Холст: Тёмная тема (при переключении) */
+      --canvas-bg: #111111;
+      --canvas-grid: #222222;
+      --shape-fill: #111111;
+      --shape-stroke: #ffffff;
+      --shape-text: #ffffff;
+    }
+
+    /* Белая тема активна по умолчанию через class="light-theme" на body */
+    body.light-theme {
+      --canvas-bg: #ffffff;
+      --canvas-grid: #e5e7eb;
+      --shape-fill: #ffffff;
+      --shape-stroke: #000000;
+      --shape-text: #000000;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--ui-bg);
+      color: var(--ui-text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      background: var(--ui-panel);
+      border-bottom: 1px solid var(--ui-border);
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      font-weight: 700;
+      font-size: 15px;
+      color: #60a5fa;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .btn {
+      background: #2d2d35;
+      color: var(--ui-text);
+      border: 1px solid #43434f;
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      user-select: none;
+    }
+
+    .btn:hover { background: #3e3e4a; border-color: #60a5fa; }
+    .btn:disabled { opacity: 0.45; cursor: default; border-color: #43434f; }
+    .btn.active-toggle { background: #1d4ed8; border-color: #60a5fa; color: #ffffff; font-weight: 600; }
+    .btn-primary { background: var(--ui-accent); border-color: var(--ui-accent); font-weight: 600; }
+    .btn-primary:hover { background: var(--ui-accent-hover); }
+    .btn-success { background: #059669; border-color: #059669; font-weight: 600; }
+    .btn-success:hover { background: #047857; }
+    .btn-danger { background: #dc2626; border-color: #dc2626; }
+    .btn-danger:hover { background: #b91c1c; }
+
+    .workspace {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* Левая колонка: Код C++ (с поддержкой плавного скрытия и выдвижения) */
+    .left-panel {
+      width: 340px;
+      min-width: 255px;
+      background: var(--ui-bg);
+      border-right: 1px solid var(--ui-border);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      flex-shrink: 0;
+      transition: width 0.22s ease, min-width 0.22s ease, opacity 0.18s ease;
+      overflow: hidden;
+    }
+
+    .left-panel.collapsed {
+      width: 0 !important;
+      min-width: 0 !important;
+      border-right: none !important;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Выдвижной ярлык открытия панели кода на левом краю холста */
+    .left-drawer-tab {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 45;
+      background: rgba(31, 31, 36, 0.95);
+      color: #60a5fa;
+      border: 1px solid #3b82f6;
+      padding: 6px 11px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+      transition: 0.15s;
+    }
+
+    .left-drawer-tab:hover {
+      background: #3b82f6;
+      color: #ffffff;
+    }
+
+    .panel-header {
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--ui-muted);
+      background: var(--ui-panel);
+      border-bottom: 1px solid var(--ui-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    #codeEditor {
+      flex: 1;
+      width: 100%;
+      background: #0d0d10;
+      color: #e4e4e7;
+      border: none;
+      padding: 10px 12px;
+      font-family: 'Consolas', 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      line-height: 1.48;
+      resize: none;
+      outline: none;
+      tab-size: 4;
+      min-height: 0;
+    }
+
+    .code-options {
+      padding: 8px 11px;
+      background: var(--ui-panel);
+      border-top: 1px solid var(--ui-border);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      font-size: 11.5px;
+      flex-shrink: 0;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      color: #e4e4e7;
+      user-select: none;
+    }
+
+    /* Центральный интерактивный холст */
+    .canvas-wrap {
+      flex: 1;
+      background-color: var(--canvas-bg);
+      background-image: radial-gradient(var(--canvas-grid) 1px, transparent 1px);
+      background-size: 20px 20px;
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    #svgCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Всплывающая панель управления при клике левой кнопкой мыши */
+    .floating-toolbar {
+      position: absolute;
+      display: none;
+      align-items: center;
+      gap: 5px;
+      background: rgba(24, 24, 29, 0.96);
+      border: 1px solid #4b5563;
+      padding: 5px 8px;
+      border-radius: 8px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+      z-index: 50;
+      transform: translate(-50%, -100%);
+      pointer-events: auto;
+      white-space: nowrap;
+      flex-wrap: wrap;
+      max-width: 92vw;
+    }
+
+    .floating-toolbar .mini-badge {
+      font-size: 11px;
+      font-weight: 700;
+      color: #93c5fd;
+      padding: 0 4px;
+    }
+
+    .floating-toolbar .mini-btn {
+      background: #2d2d37;
+      color: #f4f4f6;
+      border: 1px solid #434352;
+      padding: 4px 8px;
+      border-radius: 5px;
+      font-size: 11.5px;
+      cursor: pointer;
+      transition: 0.12s;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .floating-toolbar .mini-btn:hover {
+      background: #3b82f6;
+      border-color: #60a5fa;
+    }
+
+    .floating-toolbar .mini-select {
+      background: #18181f;
+      color: #f4f4f6;
+      border: 1px solid #434352;
+      padding: 3px 6px;
+      border-radius: 5px;
+      font-size: 11.5px;
+      outline: none;
+      max-width: 175px;
+    }
+
+    .floating-toolbar .mini-btn-del {
+      background: #991b1b;
+      border-color: #dc2626;
+    }
+
+    .floating-toolbar .mini-btn-del:hover {
+      background: #dc2626;
+      border-color: #f87171;
+    }
+
+    /* Всплывающий редактор текста и штампа ГОСТ */
+    .inline-editor-box, .stamp-modal-box {
+      position: absolute;
+      display: none;
+      flex-direction: column;
+      gap: 7px;
+      background: #18181d;
+      border: 2px solid #3b82f6;
+      border-radius: 8px;
+      padding: 10px;
+      z-index: 60;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.65);
+      transform: translate(-50%, -50%);
+      min-width: 260px;
+    }
+
+    .inline-editor-box textarea {
+      width: 100%;
+      min-height: 68px;
+      background: #0d0d10;
+      color: #ffffff;
+      border: 1px solid #3f3f46;
+      border-radius: 4px;
+      padding: 6px;
+      font-family: 'Consolas', monospace;
+      font-size: 13px;
+      resize: both;
+      outline: none;
+    }
+
+    .stamp-modal-box {
+      top: 50%;
+      left: 50%;
+      width: 330px;
+    }
+
+    .stamp-field {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-size: 11.5px;
+      color: var(--ui-muted);
+    }
+
+    .stamp-field input {
+      background: #0d0d10;
+      color: #ffffff;
+      border: 1px solid #3f3f46;
+      border-radius: 4px;
+      padding: 5px 8px;
+      font-size: 12.5px;
+      outline: none;
+    }
+
+    .stamp-field input:focus {
+      border-color: #3b82f6;
+    }
+
+    /* Правая панель: РАЗДЕЛЕНА НА 4 ОТДЕЛЬНЫХ БЛОКА-ГРУППЫ БЕЗ ПРОКРУТКИ */
+    .right-panel {
+      width: 400px;
+      min-width: 350px;
+      background: #141418;
+      border-left: 1px solid var(--ui-border);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .sections-container {
+      flex: 1;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .gost-section-block {
+      background: #1c1c22;
+      border: 1px solid #32323e;
+      border-radius: 7px;
+      padding: 4px 6px 5px 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .gost-section-block.sec-2rows { flex: 2.1; }
+    .gost-section-block.sec-1row  { flex: 1.15; }
+    .gost-section-block.sec-3rows { flex: 3.1; }
+
+    .gost-section-header {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #60a5fa;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2px;
+      flex-shrink: 0;
+    }
+
+    .gost-section-header span.sec-tag {
+      font-size: 9px;
+      color: var(--ui-muted);
+      font-weight: 500;
+      text-transform: none;
+    }
+
+    .section-grid-3 {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-auto-rows: minmax(0, 1fr);
+      gap: 4px;
+      min-height: 0;
+    }
+
+    .section-grid-4 {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-auto-rows: minmax(0, 1fr);
+      gap: 4px;
+      min-height: 0;
+    }
+
+    .shape-card {
+      background: #26262f;
+      border: 1px solid #3a3a48;
+      border-radius: 5px;
+      padding: 2px 3px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5px;
+      cursor: pointer;
+      transition: 0.12s;
+      color: var(--ui-text);
+      text-align: center;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .shape-card:hover {
+      background: #333342;
+      border-color: #60a5fa;
+      transform: translateY(-1px);
+      z-index: 2;
+    }
+
+    .shape-card svg {
+      width: 48px;
+      height: 19px;
+      flex-shrink: 1;
+      overflow: visible;
+    }
+
+    .shape-card-title {
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 1.05;
+      white-space: nowrap;
+    }
+
+    .shape-card-sub {
+      font-size: 8.5px;
+      color: var(--ui-muted);
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    /* Элементы SVG на холсте */
+    .flow-shape {
+      fill: var(--shape-fill);
+      stroke: var(--shape-stroke);
+      stroke-width: 1.7px;
+      cursor: move;
+    }
+
+    .flow-comment-hit {
+      fill: transparent;
+      stroke: none;
+      cursor: move;
+    }
+
+    .flow-comment-bracket {
+      fill: none;
+      stroke: var(--shape-stroke);
+      stroke-width: 1.7px;
+      cursor: move;
+    }
+
+    .flow-brace-box {
+      fill: transparent;
+      stroke: transparent;
+      stroke-width: 1.5px;
+      cursor: move;
+    }
+
+    .flow-node.selected .flow-shape,
+    .flow-node.selected .flow-comment-bracket {
+      stroke: #3b82f6 !important;
+      stroke-width: 2.5px !important;
+      filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.5));
+    }
+
+    .flow-node.selected .flow-brace-box {
+      stroke: #3b82f6 !important;
+      stroke-dasharray: 4, 3;
+    }
+
+    .flow-text {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 13px;
+      fill: var(--shape-text);
+      text-anchor: middle;
+      pointer-events: none;
+    }
+
+    .flow-text-left {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 13px;
+      fill: var(--shape-text);
+      text-anchor: start;
+      pointer-events: none;
+    }
+
+    .flow-gost-num {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      fill: var(--shape-text);
+      text-anchor: start;
+      pointer-events: none;
+    }
+
+    .flow-brace-svg-text {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-weight: 300;
+      fill: var(--shape-text);
+      text-anchor: middle;
+      dominant-baseline: central;
+      pointer-events: none;
+    }
+
+    .flow-edge-line {
+      fill: none;
+      stroke: var(--shape-stroke);
+      stroke-width: 1.7px;
+      cursor: pointer;
+    }
+
+    .flow-edge-hit {
+      fill: none;
+      stroke: transparent;
+      stroke-width: 14px;
+      cursor: pointer;
+    }
+
+    .flow-edge.selected .flow-edge-line {
+      stroke: #3b82f6 !important;
+      stroke-width: 2.5px !important;
+    }
+
+    /* Интерактивные участки и ползунки перетаскивания колен связей мышкой */
+    .edge-seg-drag-v {
+      stroke: transparent;
+      stroke-width: 14px;
+      cursor: ew-resize;
+    }
+
+    .edge-seg-drag-h {
+      stroke: transparent;
+      stroke-width: 14px;
+      cursor: ns-resize;
+    }
+
+    .edge-elbow-pill {
+      fill: #f59e0b;
+      stroke: #ffffff;
+      stroke-width: 1.3px;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .flow-edge:hover .edge-elbow-pill,
+    .flow-edge.selected .edge-elbow-pill {
+      opacity: 1;
+    }
+
+    .edge-label-text {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 12.5px;
+      fill: var(--shape-text);
+      cursor: pointer;
+    }
+
+    .port-dot {
+      fill: #3b82f6;
+      stroke: #ffffff;
+      stroke-width: 1.5px;
+      r: 5.5px;
+      opacity: 0;
+      cursor: crosshair;
+      transition: opacity 0.15s, r 0.15s;
+    }
+
+    .port-dot:hover {
+      r: 7.5px;
+      fill: #60a5fa;
+    }
+
+    .flow-node:hover .port-dot,
+    .flow-node.selected .port-dot,
+    body.connecting-mode .port-dot {
+      opacity: 1;
+    }
+
+    .edge-port-dot {
+      fill: #10b981;
+      stroke: #ffffff;
+      stroke-width: 1.6px;
+      r: 5.5px;
+      opacity: 0;
+      cursor: crosshair;
+      transition: opacity 0.15s, r 0.15s;
+    }
+
+    .edge-port-dot:hover {
+      r: 8px;
+      fill: #34d399;
+    }
+
+    .flow-edge:hover .edge-port-dot,
+    .flow-edge.selected .edge-port-dot,
+    body.connecting-mode .edge-port-dot {
+      opacity: 1;
+    }
+
+    .resize-handle {
+      fill: #2563eb;
+      stroke: #ffffff;
+      stroke-width: 1.5px;
+      cursor: nwse-resize;
+      opacity: 0;
+    }
+
+    .flow-node.selected .resize-handle {
+      opacity: 1;
+    }
+
+    /* Лазерные направляющие выравнивания (Smart Guides) */
+    .laser-guide-line {
+      stroke: #f43f5e;
+      stroke-width: 1.4px;
+      stroke-dasharray: 5, 4;
+      pointer-events: none;
+    }
+
+    .laser-guide-dot {
+      fill: #f43f5e;
+      pointer-events: none;
+    }
+
+    /* Рамка мультивыделения (Shift + ЛКМ) */
+    .marquee-box {
+      fill: rgba(59, 130, 246, 0.16);
+      stroke: #3b82f6;
+      stroke-width: 1.5px;
+      stroke-dasharray: 5, 3;
+      pointer-events: none;
+    }
+
+    /* Чертёжная рамка и штамп ГОСТ для печати */
+    .gost-frame-outer {
+      fill: none;
+      stroke: var(--shape-stroke);
+      stroke-width: 1.2px;
+    }
+
+    .gost-frame-inner {
+      fill: none;
+      stroke: var(--shape-stroke);
+      stroke-width: 2.2px;
+    }
+
+    .gost-stamp-box {
+      fill: var(--shape-fill);
+      stroke: var(--shape-stroke);
+      stroke-width: 2px;
+      cursor: pointer;
+    }
+
+    .gost-stamp-line {
+      stroke: var(--shape-stroke);
+      stroke-width: 1.6px;
+    }
+
+    .gost-stamp-thin {
+      stroke: var(--shape-stroke);
+      stroke-width: 1px;
+    }
+
+    .gost-stamp-text {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      fill: var(--shape-text);
+      cursor: pointer;
+    }
+
+    .canvas-controls {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      display: flex;
+      gap: 6px;
+      background: rgba(24, 24, 28, 0.9);
+      padding: 6px;
+      border-radius: 8px;
+      border: 1px solid var(--ui-border);
+      align-items: center;
+    }
+
+    .canvas-hint-pill {
+      font-size: 11px;
+      color: var(--ui-muted);
+      padding: 0 6px;
+    }
+  </style>
+</head>
+<body class="light-theme">
+
+<header>
+  <div class="brand">
+    <button class="btn" id="toggleCodePanelBtn" onclick="toggleLeftPanel()" title="Скрыть или выдвинуть левую панель с кодом C++ (Ctrl+B)">◀ Скрыть код</button>
+    <span>📐 C++ ГОСТ 19.701-90 Studio Pro</span>
+  </div>
+
+  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+    <button class="btn" id="undoBtn" onclick="undoAction()" title="Отменить шаг (Ctrl+Z)">↩ Назад</button>
+    <button class="btn" id="redoBtn" onclick="redoAction()" title="Повторить шаг (Ctrl+Y)">↪ Вперёд</button>
+    <button class="btn" onclick="toggleTheme()" id="themeBtn">Тёмная тема</button>
+    <button class="btn" id="gostFrameBtn" onclick="toggleGostFrame()" title="Включить/выключить чертёжную рамку и штамп ГОСТ вокруг схемы">🖼 Рамка ГОСТ</button>
+    <button class="btn" onclick="openStampModal()" title="Заполнить ФИО, группу и номер лабораторной работы в штампе">✎ Штамп</button>
+    <button class="btn" onclick="autoAlignCenter()">📏 Выровнять по оси X</button>
+    <button class="btn btn-success" id="copyClipBtn" onclick="copyImageToClipboard()">📋 В буфер для Word</button>
+    <button class="btn btn-primary" onclick="downloadPNG()">⬇ PNG</button>
+    <button class="btn btn-primary" onclick="downloadSVG()">⬇ SVG</button>
+    <button class="btn btn-primary" onclick="exportDrawio()">⬇ .drawio</button>
+  </div>
+</header>
+
+<div class="workspace">
+  <!-- Левая колонка: Код C++ -->
+  <div class="left-panel" id="leftPanel">
+    <div class="panel-header">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span>Код C++</span>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
+        <button class="btn" style="padding:2px 6px;font-size:10.5px;border-color:#10b981;color:#6ee7b7;" onclick="loadLoopIfExample()" title="Загрузить пример с циклом for, условием if, скобками {} и return 0 в овале">Цикл + if</button>
+        <button class="btn" style="padding:2px 6px;font-size:10.5px;border-color:#f59e0b;color:#fcd34d;" onclick="loadTriangleIfExample()" title="Загрузить пример с тройным вложенным if-else (проверка треугольника)">Вложенные if</button>
+        <button class="btn" style="padding:2px 6px;font-size:10.5px;" onclick="loadExampleFromScreenshot()" title="Загрузить линейный пример">Образец 1</button>
+        <button class="btn" style="padding:2px 6px;font-size:10.5px;border-color:#3b82f6;color:#93c5fd;" onclick="loadComplexCppExample()" title="Загрузить пример с функциями, switch-case и вложенными ветвлениями без наложений">Сложный C++</button>
+        <button class="btn btn-danger" style="padding:2px 6px;font-size:10.5px;" onclick="resetAllEmpty()" title="Очистить и код, и весь холст">Сброс</button>
+        <button class="btn" style="padding:2px 6px;font-size:10.5px;" onclick="toggleLeftPanel()" title="Свернуть панель кода влево (Ctrl+B)">◀</button>
+      </div>
+    </div>
+    <textarea id="codeEditor" placeholder="// Вставьте сюда ваш код на C++ (поддерживаются функции, вложенные if-else, for, while, do-while, switch-case)..." spellcheck="false"></textarea>
+    <div class="code-options">
+      <label class="checkbox-row">
+        <input type="checkbox" id="optExampleStyle" checked onchange="generateFromCpp()">
+        Оформление со скобками { } и return 0 в овале
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" id="optShowKeywords" checked onchange="generateFromCpp()">
+        Показывать if, for, while внутри блоков
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" id="optGostLoopBounds" onchange="generateFromCpp()">
+        Циклы через «Границы цикла» (п. 3.2.2.6 ГОСТ)
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" id="optGroupStmts" checked onchange="generateFromCpp()">
+        Группировать подряд идущие блоки
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" id="optGostNumbers" onchange="renderAll()">
+        Нумерация блоков сверху слева (п. 4.1.5 ГОСТ)
+      </label>
+      <button class="btn btn-primary" style="justify-content:center;margin-top:2px;" onclick="generateFromCpp()">
+        ⚡ Построить схему из C++
+      </button>
+    </div>
+  </div>
+
+  <!-- Центральный интерактивный холст -->
+  <div class="canvas-wrap" id="canvasWrap">
+    <!-- Кнопка быстрого выдвижения панели кода, когда она скрыта -->
+    <button id="openLeftPanelTab" class="left-drawer-tab" onclick="toggleLeftPanel()" title="Выдвинуть панель с кодом C++ (Ctrl+B)">
+      ▶ Код C++
+    </button>
+
+    <!-- Всплывающая панель управления при клике левой кнопкой мыши -->
+    <div id="floatingToolbar" class="floating-toolbar" onmousedown="event.stopPropagation()">
+      <span id="floatMultiBadge" class="mini-badge" style="display:none;">Выбрано: 2</span>
+
+      <select id="floatNodeTypeSelect" class="mini-select" onchange="changeSelectedNodeType(this.value)" title="Сменить фигуру по ГОСТ 19.701-90">
+        <option value="process">Процесс (▭)</option>
+        <option value="predefined">Подпрограмма (|[ ]|)</option>
+        <option value="decision">Решение (◇)</option>
+        <option value="prep">Подготовка (⬡)</option>
+        <option value="io">Данные (▱)</option>
+        <option value="terminator">Терминатор (⬭)</option>
+        <option value="loop_start">Начало цикла (⏢)</option>
+        <option value="loop_end">Конец цикла (⏥)</option>
+        <option value="manual_op">Ручная опер.</option>
+        <option value="parallel">Паралл. действ.</option>
+        <option value="striped_process">С полосой</option>
+        <option value="stored_data">Запом. данные</option>
+        <option value="ram">ОЗУ</option>
+        <option value="seq_storage">Послед. ЗУ</option>
+        <option value="direct_storage">Прямое ЗУ (Диск)</option>
+        <option value="document">Документ</option>
+        <option value="manual_input">Ручной ввод</option>
+        <option value="card">Карта</option>
+        <option value="paper_tape">Бумажн. лента</option>
+        <option value="display">Дисплей</option>
+        <option value="comment">Комментарий ([--)</option>
+        <option value="connector">Соединитель (◯)</option>
+        <option value="omission">Пропуск (...)</option>
+        <option value="brace">Скобка { }</option>
+      </select>
+
+      <button class="mini-btn" id="floatScaleUpBtn" onclick="scaleSelectedElement(1.15)" title="Увеличить размер">＋ Масштаб</button>
+      <button class="mini-btn" id="floatScaleDownBtn" onclick="scaleSelectedElement(0.85)" title="Уменьшить размер">－ Масштаб</button>
+      <button class="mini-btn" id="floatEditBtn" onclick="openInlineEditor()" title="Быстро изменить текст">✎ Текст</button>
+      <button class="mini-btn" id="floatDupBtn" onclick="duplicateSelectedNodes()" title="Дублировать выбранные блоки">❐ Копия</button>
+
+      <!-- Кнопки для связи -->
+      <select id="floatEdgeStyleSelect" class="mini-select" onchange="changeSelectedEdgeStyle(this.value)" title="Тип линии по ГОСТ 19.701-90">
+        <option value="ortho">Под углом 90°</option>
+        <option value="straight">Прямая линия</option>
+        <option value="dashed">Пунктирная</option>
+        <option value="control_transfer">Передача управл. (▽)</option>
+        <option value="comm_link">Канал связи (⚡)</option>
+        <option value="loop_left">Петля слева</option>
+        <option value="bypass_right">Обход справа</option>
+      </select>
+      <button class="mini-btn" id="floatBendLeftBtn" onclick="shiftSelectedEdgeBend(-20)" title="Сдвинуть изгиб влево/вверх">⬅ Колено</button>
+      <button class="mini-btn" id="floatBendRightBtn" onclick="shiftSelectedEdgeBend(20)" title="Сдвинуть изгиб вправо/вниз">Колено ➡</button>
+      <button class="mini-btn" id="floatCommentEdgeBtn" onclick="addCommentToSelectedEdge()" title="Присоединить комментарий к центру этой связи">💬 Комментарий</button>
+
+      <button class="mini-btn mini-btn-del" onclick="deleteSelected()" title="Удалить выбранное (Del)">🗑 Удалить</button>
+    </div>
+
+    <!-- Быстрый редактор текста прямо поверх блока или связи на холсте -->
+    <div id="inlineEditorBox" class="inline-editor-box" onmousedown="event.stopPropagation()">
+      <textarea id="inlineTextarea" placeholder="Введите текст..."></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:6px;">
+        <button class="btn" onclick="closeInlineEditor()">Отмена</button>
+        <button class="btn btn-primary" onclick="saveInlineEditor()">Сохранить (Ctrl+Enter)</button>
+      </div>
+    </div>
+
+    <!-- Окно редактирования штампа ГОСТ -->
+    <div id="stampModalBox" class="stamp-modal-box" onmousedown="event.stopPropagation()">
+      <div style="font-weight:700;font-size:13px;color:#60a5fa;margin-bottom:2px;">Настройка штампа ГОСТ для печати</div>
+      <div class="stamp-field">
+        <label>Название работы / Тема (по центру штампа):</label>
+        <input type="text" id="stampTitleInput" value="Лабораторная работа №1">
+      </div>
+      <div class="stamp-field">
+        <label>Наименование документа (верхняя строка):</label>
+        <input type="text" id="stampDocInput" value="Схема алгоритма программы (ГОСТ 19.701-90)">
+      </div>
+      <div class="stamp-field">
+        <label>Выполнил (ФИО студента):</label>
+        <input type="text" id="stampAuthorInput" value="Иванов И. И.">
+      </div>
+      <div class="stamp-field">
+        <label>Проверил (Преподаватель):</label>
+        <input type="text" id="stampTeacherInput" value="Полякова О. А.">
+      </div>
+      <div class="stamp-field">
+        <label>Группа / Кафедра:</label>
+        <input type="text" id="stampGroupInput" value="ИВТ-101">
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:4px;">
+        <button class="btn" onclick="closeStampModal()">Закрыть</button>
+        <button class="btn btn-primary" onclick="saveStampModal()">Применить</button>
+      </div>
+    </div>
+
+    <svg id="svgCanvas" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrowHead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="var(--shape-stroke)"/>
+        </marker>
+      </defs>
+      <g id="viewportGroup">
+        <g id="gostFrameLayer"></g>
+        <g id="edgesLayer"></g>
+        <g id="nodesLayer"></g>
+        <g id="smartGuidesLayer"></g>
+        <rect id="marqueeRect" x="0" y="0" width="0" height="0" class="marquee-box" style="display:none;"/>
+        <polyline id="tempConnectLine" points="0,0 0,0" fill="none" stroke="#3b82f6" stroke-width="2" stroke-dasharray="5,5" style="display:none;pointer-events:none;"/>
+      </g>
+    </svg>
+
+    <div class="canvas-controls">
+      <button class="btn" onclick="zoomCanvas(1.15)">🔍＋ Холст</button>
+      <button class="btn" onclick="zoomCanvas(0.85)">🔍－ Холст</button>
+      <button class="btn" onclick="centerDiagram()">По центру</button>
+      <span class="canvas-hint-pill">💡 <b>Shift + ЛКМ</b> — рамка | <b>Ctrl + B</b> — скрыть/показать код</span>
+    </div>
+  </div>
+
+  <!-- Правая колонка: РАЗДЕЛЕНА НА 4 НАГЛЯДНЫХ БЛОКА-ГРУППЫ БЕЗ ПРОКРУТКИ -->
+  <div class="right-panel">
+    <div class="panel-header">
+      <span>Палитра символов ГОСТ 19.701-90</span>
+    </div>
+
+    <div class="sections-container">
+      <!-- БЛОК 1: Основные блоки C++ -->
+      <div class="gost-section-block sec-2rows">
+        <div class="gost-section-header">
+          <span>1. Основные блоки для C++</span>
+          <span class="sec-tag">базовые</span>
+        </div>
+        <div class="section-grid-3">
+          <button class="shape-card" onclick="addManualNode('terminator', 'return 0;', event)">
+            <svg viewBox="0 0 60 22"><rect x="4" y="2" width="52" height="18" rx="9" ry="9" fill="none" stroke="#f4f4f6" stroke-width="1.7"/></svg>
+            <span class="shape-card-title">Терминатор</span>
+            <span class="shape-card-sub">Начало / return 0;</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('predefined', 'int main()', event)">
+            <svg viewBox="0 0 60 22">
+              <rect x="4" y="2" width="52" height="18" fill="none" stroke="#f4f4f6" stroke-width="1.7"/>
+              <line x1="11" y1="2" x2="11" y2="20" stroke="#f4f4f6" stroke-width="1.7"/>
+              <line x1="49" y1="2" x2="49" y2="20" stroke="#f4f4f6" stroke-width="1.7"/>
+            </svg>
+            <span class="shape-card-title">Подпрограмма</span>
+            <span class="shape-card-sub">int main / функц.</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('process', 'sum = sum + i;', event)">
+            <svg viewBox="0 0 60 22"><rect x="4" y="2" width="52" height="18" fill="none" stroke="#f4f4f6" stroke-width="1.7"/></svg>
+            <span class="shape-card-title">Процесс</span>
+            <span class="shape-card-sub">Расчёт / присваив.</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('io', 'cout << sum << endl;', event)">
+            <svg viewBox="0 0 60 22"><polygon points="12,2 56,2 48,20 4,20" fill="none" stroke="#f4f4f6" stroke-width="1.7"/></svg>
+            <span class="shape-card-title">Данные</span>
+            <span class="shape-card-sub">Ввод cin / cout</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('brace', '{', event)">
+            <svg viewBox="0 0 60 22"><text x="30" y="11" fill="#f4f4f6" font-size="19" text-anchor="middle" dominant-baseline="central">{</text></svg>
+            <span class="shape-card-title">Скобка {</span>
+            <span class="shape-card-sub">Начало блока</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('brace', '}', event)">
+            <svg viewBox="0 0 60 22"><text x="30" y="11" fill="#f4f4f6" font-size="19" text-anchor="middle" dominant-baseline="central">}</text></svg>
+            <span class="shape-card-title">Скобка }</span>
+            <span class="shape-card-sub">Конец блока</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- БЛОК 2: Ветвления, циклы и сноски -->
+      <div class="gost-section-block sec-2rows">
+        <div class="gost-section-header">
+          <span>2. Ветвления, циклы и сноски</span>
+          <span class="sec-tag">логика</span>
+        </div>
+        <div class="section-grid-3">
+          <button class="shape-card" onclick="addManualNode('decision', 'if (x > 0)', event)">
+            <svg viewBox="0 0 60 22"><polygon points="30,2 56,11 30,20 4,11" fill="none" stroke="#f4f4f6" stroke-width="1.7"/></svg>
+            <span class="shape-card-title">Решение</span>
+            <span class="shape-card-sub">if / switch / while</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('prep', 'for (int i = 0; i < n; i++)', event)">
+            <svg viewBox="0 0 60 22"><polygon points="12,2 48,2 56,11 48,20 12,20 4,11" fill="none" stroke="#f4f4f6" stroke-width="1.7"/></svg>
+            <span class="shape-card-title">Подготовка</span>
+            <span class="shape-card-sub">Цикл for</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('comment', '#include <iostream>\nusing namespace std;', event)">
+            <svg viewBox="0 0 60 22">
+              <line x1="4" y1="11" x2="24" y2="11" stroke="#f4f4f6" stroke-width="1.6" stroke-dasharray="3,3"/>
+              <path d="M 36 2 L 24 2 L 24 20 L 36 20" fill="none" stroke="#f4f4f6" stroke-width="1.7"/>
+            </svg>
+            <span class="shape-card-title">Комментарий</span>
+            <span class="shape-card-sub">Пунктир + скобка [</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('loop_start', 'Цикл 1\ni = 1..n', event)">
+            <svg viewBox="0 0 60 22"><polygon points="11,2 49,2 56,8 56,20 4,20 4,8" fill="none" stroke="#f4f4f6" stroke-width="1.7"/></svg>
+            <span class="shape-card-title">Начало цикла</span>
+            <span class="shape-card-sub">п. 3.2.2.6 (верх)</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('loop_end', 'Цикл 1', event)">
+            <svg viewBox="0 0 60 22"><polygon points="4,2 56,2 56,14 49,20 11,20 4,14" fill="none" stroke="#f4f4f6" stroke-width="1.7"/></svg>
+            <span class="shape-card-title">Конец цикла</span>
+            <span class="shape-card-sub">п. 3.2.2.6 (низ)</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('connector', '1', event)">
+            <svg viewBox="0 0 60 22"><circle cx="30" cy="11" r="8.5" fill="none" stroke="#f4f4f6" stroke-width="1.7"/></svg>
+            <span class="shape-card-title">Соединитель</span>
+            <span class="shape-card-sub">п. 3.4.1 (Узел)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- БЛОК 3: Специальные процессы ГОСТ -->
+      <div class="gost-section-block sec-1row">
+        <div class="gost-section-header">
+          <span>3. Специальные процессы ГОСТ</span>
+          <span class="sec-tag">п. 3.2 / 3.4</span>
+        </div>
+        <div class="section-grid-4">
+          <button class="shape-card" onclick="addManualNode('manual_op', 'Ручная опер.', event)">
+            <svg viewBox="0 0 60 22"><polygon points="4,2 56,2 46,20 14,20" fill="none" stroke="#f4f4f6" stroke-width="1.7"/></svg>
+            <span class="shape-card-title">Ручная опер.</span>
+            <span class="shape-card-sub">п. 3.2.2.2</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('parallel', '', event)">
+            <svg viewBox="0 0 60 22">
+              <line x1="4" y1="7" x2="56" y2="7" stroke="#f4f4f6" stroke-width="1.8"/>
+              <line x1="4" y1="15" x2="56" y2="15" stroke="#f4f4f6" stroke-width="1.8"/>
+            </svg>
+            <span class="shape-card-title">Паралл. действ.</span>
+            <span class="shape-card-sub">п. 3.2.2.5</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('striped_process', 'XB1\nМодуль', event)">
+            <svg viewBox="0 0 60 22">
+              <rect x="4" y="2" width="52" height="18" fill="none" stroke="#f4f4f6" stroke-width="1.7"/>
+              <line x1="4" y1="7" x2="56" y2="7" stroke="#f4f4f6" stroke-width="1.7"/>
+            </svg>
+            <span class="shape-card-title">С полосой</span>
+            <span class="shape-card-sub">п. 4.1.8</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('omission', '...', event)">
+            <svg viewBox="0 0 60 22"><text x="30" y="11" fill="#f4f4f6" font-size="17" font-weight="bold" text-anchor="middle" dominant-baseline="central">...</text></svg>
+            <span class="shape-card-title">Пропуск (...)</span>
+            <span class="shape-card-sub">п. 3.4.4</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- БЛОК 4: Носители данных и ЗУ ГОСТ -->
+      <div class="gost-section-block sec-3rows">
+        <div class="gost-section-header">
+          <span>4. Носители данных и устройства</span>
+          <span class="sec-tag">п. 3.1 ГОСТ</span>
+        </div>
+        <div class="section-grid-3">
+          <button class="shape-card" onclick="addManualNode('stored_data', 'Массив A', event)">
+            <svg viewBox="0 0 60 22"><path d="M 12 2 L 54 2 Q 46 11 54 20 L 12 20 Q 4 11 12 2 Z" fill="none" stroke="#f4f4f6" stroke-width="1.7"/></svg>
+            <span class="shape-card-title">Запом. данные</span>
+            <span class="shape-card-sub">п. 3.1.1.2</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('ram', 'ОЗУ (RAM)', event)">
+            <svg viewBox="0 0 60 22">
+              <rect x="4" y="2" width="52" height="18" fill="none" stroke="#f4f4f6" stroke-width="1.7"/>
+              <line x1="11" y1="2" x2="11" y2="20" stroke="#f4f4f6" stroke-width="1.7"/>
+              <line x1="4" y1="7" x2="56" y2="7" stroke="#f4f4f6" stroke-width="1.7"/>
+            </svg>
+            <span class="shape-card-title">Оперативн. ЗУ</span>
+            <span class="shape-card-sub">п. 3.1.2.1 (ОЗУ)</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('seq_storage', 'Лента', event)">
+            <svg viewBox="0 0 60 22">
+              <circle cx="30" cy="11" r="8.5" fill="none" stroke="#f4f4f6" stroke-width="1.7"/>
+              <line x1="30" y1="19.5" x2="45" y2="19.5" stroke="#f4f4f6" stroke-width="1.7"/>
+            </svg>
+            <span class="shape-card-title">Послед. ЗУ</span>
+            <span class="shape-card-sub">п. 3.1.2.2</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('direct_storage', 'Диск / БД', event)">
+            <svg viewBox="0 0 60 22">
+              <path d="M 10 2 L 48 2 A 6 9 0 0 1 48 20 L 10 20 A 6 9 0 0 1 10 2 Z" fill="none" stroke="#f4f4f6" stroke-width="1.7"/>
+              <ellipse cx="48" cy="11" rx="5" ry="9" fill="none" stroke="#f4f4f6" stroke-width="1.7"/>
+            </svg>
+            <span class="shape-card-title">Прямое ЗУ</span>
+            <span class="shape-card-sub">п. 3.1.2.3 (Диск)</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('document', 'Отчёт', event)">
+            <svg viewBox="0 0 60 22"><path d="M 4 2 L 56 2 L 56 17 Q 43 23 30 17 Q 17 11 4 18 Z" fill="none" stroke="#f4f4f6" stroke-width="1.7"/></svg>
+            <span class="shape-card-title">Документ</span>
+            <span class="shape-card-sub">п. 3.1.2.4</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('manual_input', 'Клавиатура', event)">
+            <svg viewBox="0 0 60 22"><polygon points="4,7 56,2 56,20 4,20" fill="none" stroke="#f4f4f6" stroke-width="1.7"/></svg>
+            <span class="shape-card-title">Ручной ввод</span>
+            <span class="shape-card-sub">п. 3.1.2.5</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('card', 'Карта', event)">
+            <svg viewBox="0 0 60 22"><polygon points="14,2 56,2 56,20 4,20 4,8" fill="none" stroke="#f4f4f6" stroke-width="1.7"/></svg>
+            <span class="shape-card-title">Карта</span>
+            <span class="shape-card-sub">п. 3.1.2.6</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('paper_tape', 'Лента', event)">
+            <svg viewBox="0 0 60 22"><path d="M 4 5 Q 17 0 30 5 Q 43 10 56 4 L 56 18 Q 43 23 30 18 Q 17 12 4 19 Z" fill="none" stroke="#f4f4f6" stroke-width="1.7"/></svg>
+            <span class="shape-card-title">Бумажн. лента</span>
+            <span class="shape-card-sub">п. 3.1.2.7</span>
+          </button>
+
+          <button class="shape-card" onclick="addManualNode('display', 'Экран', event)">
+            <svg viewBox="0 0 60 22"><path d="M 14 2 L 46 2 A 10 9 0 0 1 46 20 L 14 20 Q 6 15.5 4 11 Q 6 6.5 14 2 Z" fill="none" stroke="#f4f4f6" stroke-width="1.7"/></svg>
+            <span class="shape-card-title">Дисплей</span>
+            <span class="shape-card-sub">п. 3.1.2.8</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- 1. ОБРАЗЦЫ КОДА C++ ---
+const LOOP_IF_CODE = `#include <iostream>
+using namespace std;
+int main()
+{
+    setlocale(LC_ALL, "Russian");
+    int sum = 0;
+    for (int i = 21; i < 100; i++) // запускаем цикл, i принимает значение от 21 до 99
+    {
+        if (i % 3 == 0) // проходит условие если i кратно 3, то
+        {
+            sum = sum + i; // к sum прибавляется текущее значение i
+        }
+    }
+    cout << "Сумма целых положительных чисел, больших 20, меньших 100 и кратных 3 = " << sum << endl;
+    return 0;
+}`;
+
+const TRIANGLE_IF_CODE = `#include <iostream>
+using namespace std;
+#include <clocale>
+
+int main()
+{
+    setlocale(LC_ALL, ".UTF8");
+    int A, B, C;
+    cin >> A >> B >> C;
+    if ((A + B > C) && (A + C > B) && (B + C > A))
+    {
+        if (A == B || B == C || C == A)
+        {
+            if (A == B && B == C)
+            {
+                cout << "Равносторонний треугольник." << endl;
+            }
+            else
+            {
+                cout << "Равнобедренный треугольник." << endl;
+            }
+        }
+        else
+        {
+            cout << "Разносторонний треугольник." << endl;
+        }
+    }
+    else
+    {
+        cout << "Треугольник с такими сторонами не существует." << endl;
+    }
+    return 0;
+}`;
+
+const EXAMPLE_CODE = `#include <iostream>
+#include <clocale>
+using namespace std;
+
+int main()
+{
+    setlocale(LC_ALL, "Russian");
+    double m, n;
+    double res1, res2, res3;
+    cout << "Введите m: ";
+    cin >> m;
+    cout << "Введите n: ";
+    cin >> n;
+    res1 = n++ * m;
+    res2 = n++ < m;
+    res3 = m-- > m;
+    cout << "Результат n++ * m = " << res1 << endl;
+    cout << "Результат n++ < m = " << res2 << endl;
+    cout << "Результат m-- > m = " << res3 << endl;
+    return 0;
+}`;
+
+const COMPLEX_CPP_CODE = `#include <iostream>
+#include <clocale>
+using namespace std;
+
+double calcSum(int n, double x)
+{
+    double s = 0;
+    for (int i = 1; i <= n; i++)
+    {
+        if (i % 2 == 0)
+        {
+            s += x * i;
+        }
+        else
+        {
+            s -= x;
+        }
+    }
+    return s;
+}
+
+int main()
+{
+    setlocale(LC_ALL, "Russian");
+    int mode, n;
+    double x, result = 0;
+    cout << "Введите mode, n, x: ";
+    cin >> mode >> n >> x;
+
+    switch (mode)
+    {
+        case 1:
+            if (n > 0)
+            {
+                result = calcSum(n, x);
+            }
+            else
+            {
+                result = -1;
+            }
+            break;
+        case 2:
+            result = x * x;
+            break;
+        default:
+            result = 0;
+            break;
+    }
+
+    cout << "Итог: " << result << endl;
+    return 0;
+}`;
+
+// --- 2. СОСТОЯНИЕ СХЕМЫ, МУЛЬТИВЫДЕЛЕНИЯ, НАПРАВЛЯЮЩИХ И РАМКИ ГОСТ ---
+let nodes = [];
+let edges = [];
+let nextId = 1;
+let globalLoopCounter = 1;
+let currentFnId = 'fn_main';
+
+let selectedNodeIds = new Set();
+let selectedEdgeId = null;
+
+// Настройки рамки и штампа ГОСТ
+let showGostFrame = false;
+let gostStampData = {
+  title: 'Лабораторная работа №1',
+  doc: 'Схема алгоритма программы (ГОСТ 19.701-90)',
+  author: 'Иванов И. И.',
+  group: 'ИВТ-101',
+  teacher: 'Полякова О. А.',
+  date: new Date().toLocaleDateString('ru-RU')
+};
+
+let panX = 120, panY = 20, scale = 0.72;
+let isPanning = false, panStartX = 0, panStartY = 0;
+
+let draggingNodesState = null;
+let activeLaserGuides = [];
+let draggingEdgeSegment = null;
+let marqueeState = null;
+
+let resizingNode = null, resizeStartW = 0, resizeStartH = 0, resizeStartX = 0, resizeStartY = 0;
+let connectingFrom = null;
+let manualSpawnCascade = 0;
+
+let historyStack = [];
+let historyIndex = -1;
+
+// Функция скрытия и выдвижения левой панели с кодом C++
+function toggleLeftPanel() {
+  const panel = document.getElementById('leftPanel');
+  const tab = document.getElementById('openLeftPanelTab');
+  const headerBtn = document.getElementById('toggleCodePanelBtn');
+  if (!panel) return;
+
+  const isCollapsed = panel.classList.toggle('collapsed');
+  if (tab) {
+    tab.style.display = isCollapsed ? 'inline-flex' : 'none';
+  }
+  if (headerBtn) {
+    headerBtn.textContent = isCollapsed ? '▶ Показать код' : '◀ Скрыть код';
+    headerBtn.classList.toggle('active-toggle', isCollapsed);
+  }
+  setTimeout(() => {
+    updateFloatingToolbarPosition();
+  }, 230);
+}
+
+function getPrimarySelectedNodeId() {
+  if (selectedNodeIds.size === 0) return null;
+  return Array.from(selectedNodeIds)[selectedNodeIds.size - 1];
+}
+
+function saveHistoryState() {
+  const snapshot = JSON.stringify({
+    nodes,
+    edges,
+    nextId,
+    code: document.getElementById('codeEditor').value,
+    showGostFrame,
+    gostStampData
+  });
+  if (historyIndex >= 0 && historyStack[historyIndex] === snapshot) return;
+  historyStack = historyStack.slice(0, historyIndex + 1);
+  historyStack.push(snapshot);
+  if (historyStack.length > 40) historyStack.shift();
+  historyIndex = historyStack.length - 1;
+  updateUndoRedoButtons();
+  try {
+    localStorage.setItem('cpp_gost_studio_v10', snapshot);
+  } catch (e) {}
+}
+
+function undoAction() {
+  if (historyIndex > 0) {
+    historyIndex--;
+    restoreFromSnapshot(historyStack[historyIndex]);
+  }
+}
+
+function redoAction() {
+  if (historyIndex < historyStack.length - 1) {
+    historyIndex++;
+    restoreFromSnapshot(historyStack[historyIndex]);
+  }
+}
+
+function restoreFromSnapshot(jsonStr) {
+  try {
+    const data = JSON.parse(jsonStr);
+    nodes = data.nodes || [];
+    edges = data.edges || [];
+    nextId = data.nextId || 100;
+    document.getElementById('codeEditor').value = data.code ?? '';
+    if (typeof data.showGostFrame === 'boolean') {
+      showGostFrame = data.showGostFrame;
+      document.getElementById('gostFrameBtn').classList.toggle('active-toggle', showGostFrame);
+    }
+    if (data.gostStampData) gostStampData = data.gostStampData;
+    selectedNodeIds.clear();
+    selectedEdgeId = null;
+    renderAll();
+    updateUndoRedoButtons();
+  } catch (e) {}
+}
+
+function updateUndoRedoButtons() {
+  document.getElementById('undoBtn').disabled = historyIndex <= 0;
+  document.getElementById('redoBtn').disabled = historyIndex >= historyStack.length - 1;
+}
+
+function calcAutoSize(type, text) {
+  const lines = String(text || '').split('\n');
+  const maxChars = Math.max(...lines.map(l => l.length), 6);
+
+  if (type === 'brace') return { w: 34, h: 38 };
+  if (type === 'omission') return { w: 50, h: 36 };
+  if (type === 'connector') return { w: 44, h: 44 };
+  if (type === 'seq_storage') return { w: 66, h: 66 };
+  if (type === 'parallel') return { w: Math.max(160, maxChars * 8 + 40), h: 28 };
+  if (type === 'terminator') return { w: Math.max(150, maxChars * 9 + 40), h: 62 };
+  if (type === 'predefined' || type === 'ram' || type === 'striped_process') {
+    return { w: Math.max(160, maxChars * 8.5 + 48), h: Math.max(54, lines.length * 20 + 28) };
+  }
+  if (type === 'comment') {
+    const w = Math.max(140, maxChars * 8 + 26);
+    const h = Math.max(44, lines.length * 20 + 18);
+    return { w, h };
+  }
+  if (type === 'io') {
+    const h = Math.max(60, lines.length * 20 + 28);
+    const skew = Math.max(18, Math.min(28, Math.round(h * 0.28)));
+    const w = Math.max(170, Math.round(maxChars * 7.8 + skew * 2 + 34));
+    return { w, h };
+  }
+  if (type === 'manual_op' || type === 'stored_data' || type === 'direct_storage' || type === 'display') {
+    const w = Math.max(160, maxChars * 7.8 + 56);
+    const h = Math.max(60, lines.length * 20 + 28);
+    return { w, h };
+  }
+  if (type === 'prep') {
+    const w = Math.max(175, maxChars * 8.2 + 56);
+    const h = Math.max(58, lines.length * 20 + 28);
+    return { w, h };
+  }
+  if (type === 'decision') {
+    const w = Math.max(175, maxChars * 8.6 + 68);
+    const h = Math.max(72, lines.length * 20 + 42);
+    return { w, h };
+  }
+  const w = Math.max(155, maxChars * 8 + 34);
+  const h = Math.max(54, lines.length * 20 + 26);
+  return { w, h };
+}
+
+function createNode(type, text, cx, y) {
+  const size = calcAutoSize(type, text);
+  const node = {
+    id: 'n' + (nextId++),
+    type,
+    text,
+    cx,
+    y,
+    w: size.w,
+    h: size.h,
+    fnId: currentFnId
+  };
+  nodes.push(node);
+  return node;
+}
+
+function createEdge(fromId, toId, opts = {}) {
+  const edge = {
+    id: 'e' + (nextId++),
+    from: fromId || null,
+    fromEdge: opts.fromEdge || null,
+    to: toId || null,
+    toEdge: opts.toEdge || null,
+    fromPort: opts.fromPort || (opts.fromEdge ? 'edge' : 'bottom'),
+    toPort: opts.toPort || (opts.toEdge ? 'edge' : 'top'),
+    leftLabel: opts.leftLabel || '',
+    rightLabel: opts.rightLabel || '',
+    style: opts.style || 'ortho',
+    bendOffset: opts.bendOffset || 0
+  };
+  edges.push(edge);
+  return edge;
+}
+
+// --- ДИНАМИЧЕСКИЙ РАСЧЁТ ГАБАРИТОВ ПОДДЕРЕВА И СДВИГ ВЕТОК БЕЗ НАЛОЖЕНИЙ ---
+function getSubtreeBounds(nodeSlice, edgeSlice = []) {
+  if (!nodeSlice || nodeSlice.length === 0) return null;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+  nodeSlice.forEach(n => {
+    const padX = n.type === 'decision' ? 34 : 18;
+    minX = Math.min(minX, n.cx - n.w / 2 - padX);
+    maxX = Math.max(maxX, n.cx + n.w / 2 + padX);
+    minY = Math.min(minY, n.y);
+    maxY = Math.max(maxY, n.y + n.h);
+  });
+
+  if (edgeSlice && edgeSlice.length > 0) {
+    resetRoutingTracks();
+    edgeSlice.forEach(e => {
+      const pts = getEdgePoints(e);
+      if (pts) {
+        pts.forEach(p => {
+          minX = Math.min(minX, p.x - 18);
+          maxX = Math.max(maxX, p.x + 18);
+          minY = Math.min(minY, p.y);
+          maxY = Math.max(maxY, p.y);
+        });
+      }
+    });
+  }
+
+  return { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY };
+}
+
+function shiftSubtree(nodeSlice, dx, dy = 0) {
+  if (!nodeSlice || (dx === 0 && dy === 0)) return;
+  nodeSlice.forEach(n => {
+    n.cx = Math.round(n.cx + dx);
+    n.y = Math.round(n.y + dy);
+  });
+}
+
+// --- 3. ПОЛНЫЙ СБРОС (ОЧИСТКА И КОДА, И ХОЛСТА) ---
+function resetAllEmpty() {
+  closeInlineEditor();
+  document.getElementById('codeEditor').value = '';
+  nodes = [];
+  edges = [];
+  nextId = 1;
+  selectedNodeIds.clear();
+  selectedEdgeId = null;
+  renderAll();
+  saveHistoryState();
+}
+
+// --- 4. ПОЛНОЦЕННЫЙ РЕКУРСИВНЫЙ ПАРСЕР C++ (ПОДДЕРЖКА ВСЕХ IF, ELSE IF, FOR, WHILE, DO-WHILE, SWITCH, {} И RETURN 0 В ОВАЛЕ) ---
+function extractBalancedBlock(str, startIdx, openCh, closeCh) {
+  let depth = 0;
+  let inString = false;
+  let strQuote = '';
+
+  for (let i = startIdx; i < str.length; i++) {
+    const ch = str[i];
+    if (inString) {
+      if (ch === '\\') {
+        i++;
+      } else if (ch === strQuote) {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      inString = true;
+      strQuote = ch;
+      continue;
+    }
+    if (ch === openCh) depth++;
+    else if (ch === closeCh) {
+      depth--;
+      if (depth === 0) return { content: str.slice(startIdx + 1, i), endIdx: i };
+    }
+  }
+  return { content: str.slice(startIdx + 1), endIdx: str.length - 1 };
+}
+
+function findNextSemicolonOutsideQuotes(str, startIdx) {
+  let inString = false;
+  let strQuote = '';
+  let parenDepth = 0;
+
+  for (let i = startIdx; i < str.length; i++) {
+    const ch = str[i];
+    if (inString) {
+      if (ch === '\\') i++;
+      else if (ch === strQuote) inString = false;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      inString = true;
+      strQuote = ch;
+      continue;
+    }
+    if (ch === '(') parenDepth++;
+    else if (ch === ')' && parenDepth > 0) parenDepth--;
+    else if (ch === ';' && parenDepth === 0) return i;
+  }
+  return -1;
+}
+
+function extractAllCppFunctions(cleanCode) {
+  const funcs = [];
+  const funcRegex = /((?:unsigned\s+|long\s+|short\s+|const\s+|static\s+|inline\s+)*(?:void|int|double|float|char|bool|string|auto|size_t)\s*\*?\s+([a-zA-Z_]\w*)\s*\([^)]*\))\s*\{/g;
+  let match;
+  let lastEnd = 0;
+
+  while ((match = funcRegex.exec(cleanCode)) !== null) {
+    if (match.index < lastEnd) continue;
+    const header = match[1].replace(/\s+/g, ' ').trim();
+    const name = match[2].trim();
+    const braceStart = cleanCode.indexOf('{', match.index + match[1].length);
+    if (braceStart === -1) break;
+    const bodyObj = extractBalancedBlock(cleanCode, braceStart, '{', '}');
+    funcs.push({ name, header, body: bodyObj.content });
+    lastEnd = bodyObj.endIdx + 1;
+    funcRegex.lastIndex = lastEnd;
+  }
+  return funcs;
+}
+
+function generateFromCpp() {
+  closeInlineEditor();
+  const raw = document.getElementById('codeEditor').value;
+  if (!raw.trim()) {
+    nodes = [];
+    edges = [];
+    selectedNodeIds.clear();
+    selectedEdgeId = null;
+    renderAll();
+    saveHistoryState();
+    return;
+  }
+
+  const usePolyakovaStyle = document.getElementById('optExampleStyle').checked;
+  const showKeywords = document.getElementById('optShowKeywords').checked;
+  const groupStmts = document.getElementById('optGroupStmts').checked;
+  const useGostLoopBounds = document.getElementById('optGostLoopBounds').checked;
+
+  nodes = [];
+  edges = [];
+  nextId = 1;
+  globalLoopCounter = 1;
+  selectedNodeIds.clear();
+  selectedEdgeId = null;
+
+  const headerLines = [];
+  raw.split('\n').forEach(l => {
+    const t = l.trim();
+    if (t.startsWith('#include') || /^using\s+namespace\b/.test(t)) {
+      headerLines.push(t);
+    }
+  });
+
+  let clean = raw
+    .replace(/\/\/.*$/gm, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*#include.*$/gm, '')
+    .replace(/^\s*using\s+namespace\b.*$/gm, '');
+
+  let funcs = extractAllCppFunctions(clean);
+  if (funcs.length === 0) {
+    funcs = [{ name: 'main', header: 'int main()', body: clean }];
+  }
+
+  const userFuncNames = new Set(funcs.filter(f => f.name !== 'main').map(f => f.name));
+  funcs.sort((a, b) => (a.name === 'main' ? -1 : b.name === 'main' ? 1 : 0));
+
+  let prevFuncMaxX = null;
+
+  funcs.forEach((fn, fnIdx) => {
+    currentFnId = `fn_${fnIdx}_${fn.name}`;
+    let bodyCode = fn.body;
+    let returnStmtText = '';
+    const retMatch = bodyCode.match(/return\s+([^;]+)\s*;\s*$/);
+    if (retMatch) {
+      returnStmtText = 'return ' + retMatch[1].trim() + ';';
+      bodyCode = bodyCode.replace(/return\s+[^;]+\s*;\s*$/, '');
+    } else if (fn.name === 'main') {
+      returnStmtText = 'return 0;';
+    } else {
+      returnStmtText = 'return;';
+    }
+
+    const ast = parseStatements(bodyCode.trim(), groupStmts, userFuncNames);
+
+    const nodesBefore = nodes.length;
+    const edgesBefore = edges.length;
+    // Строим каждую функцию сначала вокруг временного центра X = 0, затем сдвигаем по её точным габаритам
+    const tempCenterX = 0;
+    let curY = 30;
+    const GAP_Y = 44;
+
+    const startLabel = fn.name === 'main' ? 'Начало' : `Начало ${fn.name}`;
+    const startNode = createNode('terminator', startLabel, tempCenterX, curY);
+    curY += startNode.h;
+
+    let prevExitNode = startNode;
+
+    if (usePolyakovaStyle || fn.name !== 'main') {
+      const showHeaderComment = (fnIdx === 0 && headerLines.length > 0);
+      const headerCommentText = headerLines.join('\n');
+      const cSize = showHeaderComment ? calcAutoSize('comment', headerCommentText) : { w: 0, h: 0 };
+      const headerGap = showHeaderComment ? Math.max(78, cSize.h + 26) : GAP_Y;
+
+      const arrowMidY = curY + headerGap / 2;
+      curY += headerGap;
+
+      const mainNode = createNode('predefined', fn.header, tempCenterX, curY);
+      const startToMainEdge = createEdge(startNode.id, mainNode.id, { style: 'ortho' });
+
+      if (showHeaderComment) {
+        const commentCx = tempCenterX + 58 + cSize.w / 2;
+        const commentY = arrowMidY - cSize.h / 2;
+        const commentNode = createNode('comment', headerCommentText, commentCx, commentY);
+        createEdge(null, commentNode.id, {
+          fromEdge: startToMainEdge.id,
+          fromPort: 'edge',
+          toPort: 'left',
+          style: 'dashed'
+        });
+      }
+
+      curY += mainNode.h;
+      prevExitNode = mainNode;
+
+      // Открывающая скобка { функции main()
+      createNode('brace', '{', tempCenterX - 42, curY + 5);
+    }
+
+    const built = buildSequenceOnCanvas(
+      ast,
+      tempCenterX,
+      curY + (usePolyakovaStyle ? 56 : GAP_Y),
+      prevExitNode,
+      0,
+      useGostLoopBounds,
+      showKeywords,
+      '',
+      usePolyakovaStyle
+    );
+    curY = built.endY;
+    prevExitNode = built.lastNode;
+
+    // return 0; пишется сразу в овале (терминаторе)
+    curY += GAP_Y;
+    const endNode = createNode('terminator', returnStmtText, tempCenterX, curY);
+    if (prevExitNode) {
+      createEdge(prevExitNode.id, endNode.id, { style: 'ortho' });
+    }
+    curY += endNode.h;
+
+    // Закрывающая скобка } функции в самом конце схемы (после return 0;)
+    if (usePolyakovaStyle || fn.name !== 'main') {
+      createNode('brace', '}', tempCenterX - 42, curY + 4);
+    }
+
+    const fnNodes = nodes.slice(nodesBefore);
+    const fnEdges = edges.slice(edgesBefore);
+    const fnBounds = getSubtreeBounds(fnNodes, fnEdges);
+
+    let shiftX = 360;
+    if (fnBounds) {
+      if (prevFuncMaxX === null) {
+        shiftX = Math.max(340, Math.round(90 - fnBounds.minX));
+      } else {
+        shiftX = Math.round(prevFuncMaxX + 150 - fnBounds.minX);
+      }
+      shiftSubtree(fnNodes, shiftX, 0);
+      prevFuncMaxX = fnBounds.maxX + shiftX;
+    } else {
+      shiftSubtree(fnNodes, shiftX, 0);
+      prevFuncMaxX = (prevFuncMaxX || 360) + 420;
+    }
+  });
+
+  renderAll();
+  saveHistoryState();
+}
+
+function parseSwitchCases(switchBody, groupStmts, userFuncNames) {
+  const cases = [];
+  const tokenRegex = /\b(?:case\s+([^:]+)|default)\s*:/g;
+  const matches = [];
+  let m;
+  while ((m = tokenRegex.exec(switchBody)) !== null) {
+    matches.push({
+      label: m[1] !== undefined ? m[1].trim() : 'default',
+      startIdx: m.index,
+      bodyStart: tokenRegex.lastIndex
+    });
+  }
+
+  for (let i = 0; i < matches.length; i++) {
+    const cur = matches[i];
+    const nextStart = i + 1 < matches.length ? matches[i + 1].startIdx : switchBody.length;
+    let rawCaseCode = switchBody.slice(cur.bodyStart, nextStart).trim();
+    rawCaseCode = rawCaseCode.replace(/\bbreak\s*;\s*$/, '').trim();
+    if (rawCaseCode.startsWith('{') && rawCaseCode.endsWith('}')) {
+      rawCaseCode = rawCaseCode.slice(1, -1).trim();
+    }
+    cases.push({
+      label: cur.label,
+      stmts: parseStatements(rawCaseCode, groupStmts, userFuncNames)
+    });
+  }
+  return cases;
+}
+
+function skipWhitespaceAndStrayBraces(code, i) {
+  const n = code.length;
+  while (i < n) {
+    if (/\s/.test(code[i]) || code[i] === ';' || code[i] === '}') {
+      i++;
+    } else {
+      break;
+    }
+  }
+  return i;
+}
+
+function classifySimpleStatement(rawStmt, userFuncNames) {
+  let stmt = rawStmt.replace(/^[{}]+|[{}]+$/g, '').trim();
+  if (!stmt || stmt === ';') return null;
+
+  let isSubprogramCall = false;
+  userFuncNames.forEach(fnName => {
+    const callRe = new RegExp('\\b' + fnName + '\\s*\\(');
+    if (callRe.test(stmt)) isSubprogramCall = true;
+  });
+
+  if (/^return\b/.test(stmt)) {
+    return { kind: 'return', text: stmt };
+  }
+  if (/^(?:std::)?w?cin\s*>>/.test(stmt) || /^getline\s*\(\s*(?:std::)?w?cin\b/.test(stmt) || /^scanf(?:_s)?\s*\(/.test(stmt)) {
+    return { kind: 'cin', text: stmt };
+  }
+  if (/^(?:std::)?w?(?:cout|cerr)\s*<</.test(stmt) || /^printf(?:_s)?\s*\(/.test(stmt)) {
+    return { kind: 'cout', text: formatSingleCout(stmt) };
+  }
+  if (isSubprogramCall) {
+    return { kind: 'subprogram', text: stmt };
+  }
+  if (/^setlocale\s*\(/.test(stmt)) {
+    return { kind: 'setlocale', text: stmt };
+  }
+  if (/^(const\s+)?(unsigned\s+)?(int|double|float|long|short|char|string|bool|size_t|auto)\b/.test(stmt)) {
+    return { kind: 'decl', text: stmt };
+  }
+  return { kind: 'calc', text: stmt };
+}
+
+function parseSingleStatementOrBlock(code, startIdx, groupStmts, userFuncNames) {
+  const n = code.length;
+  let i = skipWhitespaceAndStrayBraces(code, startIdx);
+  if (i >= n) return { items: [], nextIdx: n, hasBraces: false };
+
+  // 1. Блок в фигурных скобках { ... }
+  if (code[i] === '{') {
+    const b = extractBalancedBlock(code, i, '{', '}');
+    const items = parseStatements(b.content, groupStmts, userFuncNames);
+    return { items, nextIdx: b.endIdx + 1, hasBraces: true };
+  }
+
+  const rest = code.slice(i);
+
+  // 2. Конструкция switch (...) { ... }
+  const swM = rest.match(/^switch\s*\(/);
+  if (swM) {
+    const pStart = i + swM[0].length - 1;
+    const exprObj = extractBalancedBlock(code, pStart, '(', ')');
+    i = exprObj.endIdx + 1;
+    while (i < n && /\s/.test(code[i])) i++;
+    let cases = [];
+    if (code[i] === '{') {
+      const b = extractBalancedBlock(code, i, '{', '}');
+      cases = parseSwitchCases(b.content, groupStmts, userFuncNames);
+      i = b.endIdx + 1;
+    }
+    return {
+      items: [{ kind: 'switch', expr: exprObj.content.trim(), cases }],
+      nextIdx: i,
+      hasBraces: true
+    };
+  }
+
+  // 3. Цикл do ... while (...);
+  const doM = rest.match(/^do\b/);
+  if (doM) {
+    i += doM[0].length;
+    const bodyParsed = parseSingleStatementOrBlock(code, i, groupStmts, userFuncNames);
+    i = bodyParsed.nextIdx;
+    while (i < n && /\s/.test(code[i])) i++;
+    const wM = code.slice(i).match(/^while\s*\(/);
+    let condStr = 'условие';
+    if (wM) {
+      const pStart = i + wM[0].length - 1;
+      const cObj = extractBalancedBlock(code, pStart, '(', ')');
+      condStr = cObj.content.trim();
+      i = cObj.endIdx + 1;
+      const semi = findNextSemicolonOutsideQuotes(code, i);
+      if (semi !== -1) i = semi + 1;
+    }
+    return {
+      items: [{ kind: 'dowhile', cond: condStr, body: bodyParsed.items }],
+      nextIdx: i,
+      hasBraces: false
+    };
+  }
+
+  // 4. Условие if (...) ... [else ...]
+  const ifM = rest.match(/^if\s*\(/);
+  if (ifM) {
+    const pStart = i + ifM[0].length - 1;
+    const cond = extractBalancedBlock(code, pStart, '(', ')');
+    i = cond.endIdx + 1;
+
+    const thenParsed = parseSingleStatementOrBlock(code, i, groupStmts, userFuncNames);
+    i = thenParsed.nextIdx;
+
+    while (i < n && /\s/.test(code[i])) i++;
+    let elseB = [];
+    const elseM = code.slice(i).match(/^else\b/);
+    if (elseM) {
+      i += elseM[0].length;
+      const elseParsed = parseSingleStatementOrBlock(code, i, groupStmts, userFuncNames);
+      elseB = elseParsed.items;
+      i = elseParsed.nextIdx;
+    }
+    return {
+      items: [{ kind: 'if', cond: cond.content.trim(), thenB: thenParsed.items, elseB }],
+      nextIdx: i,
+      hasBraces: false
+    };
+  }
+
+  // 5. Циклы for (...) ... и while (...) ...
+  const loopM = rest.match(/^(for|while)\s*\(/);
+  if (loopM) {
+    const loopType = loopM[1];
+    const pStart = i + loopM[0].length - 1;
+    const head = extractBalancedBlock(code, pStart, '(', ')');
+    i = head.endIdx + 1;
+    while (i < n && /\s/.test(code[i])) i++;
+
+    let body = [];
+    if (code[i] === ';') {
+      i++;
+    } else {
+      const bodyParsed = parseSingleStatementOrBlock(code, i, groupStmts, userFuncNames);
+      body = bodyParsed.items;
+      i = bodyParsed.nextIdx;
+    }
+    return {
+      items: [{ kind: 'loop', loopType, header: head.content.trim(), body }],
+      nextIdx: i,
+      hasBraces: false
+    };
+  }
+
+  // 6. Обычный оператор до точки с запятой ;
+  const semi = findNextSemicolonOutsideQuotes(code, i);
+  const endPos = semi === -1 ? n : semi + 1;
+  const rawStmt = code.slice(i, endPos).trim();
+  const classified = classifySimpleStatement(rawStmt, userFuncNames);
+
+  return {
+    items: classified ? [classified] : [],
+    nextIdx: endPos,
+    hasBraces: false
+  };
+}
+
+function parseStatements(code, groupStmts, userFuncNames = new Set()) {
+  const rawItems = [];
+  let i = 0;
+  const n = code.length;
+
+  while (i < n) {
+    const nextI = skipWhitespaceAndStrayBraces(code, i);
+    if (nextI >= n) break;
+    const res = parseSingleStatementOrBlock(code, nextI, groupStmts, userFuncNames);
+    if (res.items && res.items.length > 0) {
+      rawItems.push(...res.items);
+    }
+    if (res.nextIdx <= i) {
+      i = nextI + 1;
+    } else {
+      i = res.nextIdx;
+    }
+  }
+
+  if (!groupStmts) return rawItems;
+
+  const grouped = [];
+  for (let k = 0; k < rawItems.length; k++) {
+    const cur = rawItems[k];
+    const prev = grouped[grouped.length - 1];
+
+    if (prev && prev.kind === cur.kind && (cur.kind === 'decl' || cur.kind === 'calc')) {
+      prev.text += '\n' + cur.text;
+    } else if (prev && prev.kind === 'cout' && cur.kind === 'cout') {
+      prev.text = prev.text + '\n' + cur.text;
+    } else {
+      grouped.push({ ...cur });
+    }
+  }
+  return grouped;
+}
+
+// Аккуратное форматирование и перенос длинных строк cout для параллелограмма ГОСТ
+function formatSingleCout(stmt) {
+  const clean = stmt.replace(/\s+/g, ' ').trim();
+  if (clean.length <= 28 && /^cout\s*<<\s*"[^"]+"\s*;$/.test(clean)) {
+    return clean.replace(/^cout\s*<<\s*/, 'cout <<\n');
+  }
+  if (clean.length <= 44) return clean;
+
+  const maxLineLen = 42;
+  const words = clean.split(' ');
+  const lines = [];
+  let currentLine = '';
+
+  words.forEach(w => {
+    if (!currentLine) {
+      currentLine = w;
+    } else if ((currentLine + ' ' + w).length <= maxLineLen) {
+      currentLine += ' ' + w;
+    } else {
+      lines.push(currentLine);
+      currentLine = w;
+    }
+  });
+  if (currentLine) lines.push(currentLine);
+  return lines.join('\n');
+}
+
+function buildSequenceOnCanvas(
+  items,
+  cx,
+  startY,
+  prevNode,
+  depth = 0,
+  useGostLoopBounds = false,
+  showKeywords = true,
+  incomingEdgeLabel = '',
+  useBracesStyle = true
+) {
+  let curY = startY;
+  let lastNode = prevNode;
+  let firstCreatedNode = null;
+  let pendingEdgeLabel = incomingEdgeLabel;
+  const GAP_Y = 40;
+
+  function connectFromLast(targetNode, extraOpts = {}) {
+    if (!firstCreatedNode) firstCreatedNode = targetNode;
+    if (lastNode) {
+      const opts = { style: 'ortho', ...extraOpts };
+      if (pendingEdgeLabel && !opts.rightLabel) {
+        opts.rightLabel = pendingEdgeLabel;
+        pendingEdgeLabel = '';
+      }
+      createEdge(lastNode.id, targetNode.id, opts);
+    }
+  }
+
+  items.forEach(item => {
+    if (item.kind === 'cin' || item.kind === 'cout') {
+      const n = createNode('io', item.text, cx, curY);
+      connectFromLast(n);
+      curY += n.h + GAP_Y;
+      lastNode = n;
+    } else if (item.kind === 'return') {
+      const n = createNode('terminator', item.text, cx, curY);
+      connectFromLast(n);
+      curY += n.h + GAP_Y;
+      lastNode = n;
+    } else if (item.kind === 'subprogram') {
+      const n = createNode('predefined', item.text, cx, curY);
+      connectFromLast(n);
+      curY += n.h + GAP_Y;
+      lastNode = n;
+    } else if (item.kind === 'setlocale' || item.kind === 'decl' || item.kind === 'calc') {
+      const n = createNode('process', item.text, cx, curY);
+      connectFromLast(n);
+      curY += n.h + GAP_Y;
+      lastNode = n;
+    } else if (item.kind === 'switch') {
+      const swLabel = showKeywords ? `switch (${item.expr})` : item.expr;
+      const swNode = createNode('decision', swLabel, cx, curY);
+      connectFromLast(swNode);
+
+      if (useBracesStyle) {
+        createNode('brace', '{', cx - swNode.w / 2 - 22, curY + swNode.h - 10);
+      }
+
+      const branchTopY = curY + swNode.h + 62;
+      let maxBranchEndY = branchTopY;
+      const caseDataList = [];
+
+      // Строим каждую ветку case вокруг X = 0 и измеряем её реальную ширину с учётом всех вложений
+      item.cases.forEach(cObj => {
+        const cNodeStart = nodes.length;
+        const cEdgeStart = edges.length;
+        const brRes = buildSequenceOnCanvas(
+          cObj.stmts,
+          0,
+          branchTopY,
+          null,
+          depth + 1,
+          useGostLoopBounds,
+          showKeywords,
+          '',
+          useBracesStyle
+        );
+        const cNodes = nodes.slice(cNodeStart);
+        const cEdges = edges.slice(cEdgeStart);
+        const cBounds = getSubtreeBounds(cNodes, cEdges) || { minX: -95, maxX: 95, width: 190 };
+        maxBranchEndY = Math.max(maxBranchEndY, brRes.endY);
+        caseDataList.push({
+          cObj,
+          brRes,
+          cNodes,
+          cBounds
+        });
+      });
+
+      // Расставляем ветки case последовательно слева направо с гарантированным зазором 64px между их габаритами
+      const CASE_GAP = 64;
+      let runningX = 0;
+      caseDataList.forEach((cd, idx) => {
+        if (idx === 0) {
+          cd.targetCenterX = 0;
+          runningX = cd.cBounds.maxX;
+        } else {
+          const desiredMinX = runningX + CASE_GAP;
+          cd.targetCenterX = Math.round(desiredMinX - cd.cBounds.minX);
+          runningX = cd.cBounds.maxX + cd.targetCenterX;
+        }
+      });
+
+      const firstMinX = caseDataList.length > 0 ? (caseDataList[0].cBounds.minX + caseDataList[0].targetCenterX) : 0;
+      const totalMidX = (firstMinX + runningX) / 2;
+      const globalOffsetX = Math.round(cx - totalMidX);
+
+      const branchExitNodes = [];
+      caseDataList.forEach(cd => {
+        const finalBranchCx = cd.targetCenterX + globalOffsetX;
+        shiftSubtree(cd.cNodes, finalBranchCx, 0);
+
+        if (cd.brRes.firstNode) {
+          const fPort = finalBranchCx < cx - 10 ? 'left' : finalBranchCx > cx + 10 ? 'right' : 'bottom';
+          createEdge(swNode.id, cd.brRes.firstNode.id, {
+            fromPort: fPort,
+            toPort: 'top',
+            rightLabel: cd.cObj.label === 'default' ? 'default' : `== ${cd.cObj.label}`,
+            style: 'ortho'
+          });
+        }
+        if (cd.brRes.lastNode) {
+          branchExitNodes.push({ node: cd.brRes.lastNode, branchCx: finalBranchCx });
+        }
+      });
+
+      curY = maxBranchEndY + 46;
+      const mergeConn = createNode('connector', '', cx, curY);
+      mergeConn.w = 14; mergeConn.h = 14;
+
+      branchExitNodes.forEach(b => {
+        const tPort = b.branchCx < cx - 10 ? 'left' : b.branchCx > cx + 10 ? 'right' : 'top';
+        createEdge(b.node.id, mergeConn.id, {
+          fromPort: 'bottom',
+          toPort: tPort,
+          style: 'ortho'
+        });
+      });
+
+      if (useBracesStyle) {
+        createNode('brace', '}', cx - 42, curY + 8);
+      }
+
+      curY += mergeConn.h + GAP_Y;
+      lastNode = mergeConn;
+    } else if (item.kind === 'if') {
+      const ifLabel = showKeywords ? `if (${item.cond})` : item.cond;
+      const decNode = createNode('decision', ifLabel, cx, curY);
+      connectFromLast(decNode);
+
+      const branchEntryGap = useBracesStyle ? 60 : 48;
+      const branchTopY = curY + decNode.h + branchEntryGap;
+
+      // 1. Строим левую ветку (Да) во временном центре X = 0 и вычисляем её полный габаритный прямоугольник
+      const thenNodeStart = nodes.length;
+      const thenEdgeStart = edges.length;
+      const thenRes = buildSequenceOnCanvas(
+        item.thenB,
+        0,
+        branchTopY,
+        null,
+        depth + 1,
+        useGostLoopBounds,
+        showKeywords,
+        '',
+        useBracesStyle
+      );
+      if (!thenRes.firstNode && nodes.length > thenNodeStart) {
+        thenRes.firstNode = nodes.slice(thenNodeStart).find(nd => nd.type !== 'brace' && nd.type !== 'comment') || null;
+      }
+      if (!thenRes.lastNode && nodes.length > thenNodeStart) {
+        const nonBrace = nodes.slice(thenNodeStart).filter(nd => nd.type !== 'brace' && nd.type !== 'comment');
+        if (nonBrace.length > 0) thenRes.lastNode = nonBrace[nonBrace.length - 1];
+      }
+      if (thenRes.firstNode && useBracesStyle) {
+        createNode('brace', '{', thenRes.firstNode.cx - 38, branchTopY - 42);
+      }
+      if (thenRes.lastNode && useBracesStyle) {
+        createNode('brace', '}', thenRes.lastNode.cx - 38, thenRes.endY + 4);
+      }
+      const thenNodes = nodes.slice(thenNodeStart);
+      const thenEdges = edges.slice(thenEdgeStart);
+      const thenBounds = getSubtreeBounds(thenNodes, thenEdges);
+
+      // 2. Строим правую ветку (Нет) во временном центре X = 0 и вычисляем её полный габаритный прямоугольник
+      let elseEndY = branchTopY;
+      let elseLast = null;
+      let elseFirst = null;
+      let elseNodes = [];
+      let elseBounds = null;
+
+      if (item.elseB && item.elseB.length > 0) {
+        const elseNodeStart = nodes.length;
+        const elseEdgeStart = edges.length;
+        const elseRes = buildSequenceOnCanvas(
+          item.elseB,
+          0,
+          branchTopY,
+          null,
+          depth + 1,
+          useGostLoopBounds,
+          showKeywords,
+          '',
+          useBracesStyle
+        );
+        if (!elseRes.firstNode && nodes.length > elseNodeStart) {
+          elseRes.firstNode = nodes.slice(elseNodeStart).find(nd => nd.type !== 'brace' && nd.type !== 'comment') || null;
+        }
+        if (!elseRes.lastNode && nodes.length > elseNodeStart) {
+          const nonBrace = nodes.slice(elseNodeStart).filter(nd => nd.type !== 'brace' && nd.type !== 'comment');
+          if (nonBrace.length > 0) elseRes.lastNode = nonBrace[nonBrace.length - 1];
+        }
+        elseEndY = elseRes.endY;
+        elseLast = elseRes.lastNode;
+        elseFirst = elseRes.firstNode;
+
+        if (elseRes.firstNode && useBracesStyle) {
+          createNode('brace', '{', elseRes.firstNode.cx - 38, branchTopY - 42);
+        }
+        if (elseRes.lastNode && useBracesStyle) {
+          createNode('brace', '}', elseRes.lastNode.cx - 38, elseRes.endY + 4);
+        }
+        elseNodes = nodes.slice(elseNodeStart);
+        const elseEdges = edges.slice(elseEdgeStart);
+        elseBounds = getSubtreeBounds(elseNodes, elseEdges);
+      }
+
+      // 3. Раздвигаем левое и правое поддерево так, чтобы их внутренние ветки никогда не пересекали ось cx
+      const minPortOffset = Math.round(decNode.w / 2 + 75);
+      const leftX = Math.min(
+        cx - minPortOffset,
+        Math.round(cx - 45 - (thenBounds ? thenBounds.maxX : 0))
+      );
+      const rightX = Math.max(
+        cx + minPortOffset,
+        Math.round(cx + 45 - (elseBounds ? elseBounds.minX : 0))
+      );
+
+      shiftSubtree(thenNodes, leftX, 0);
+      shiftSubtree(elseNodes, rightX, 0);
+
+      if (thenRes.firstNode) {
+        createEdge(decNode.id, thenRes.firstNode.id, { fromPort: 'left', toPort: 'top', rightLabel: 'Да', style: 'ortho' });
+      }
+      if (elseFirst) {
+        createEdge(decNode.id, elseFirst.id, { fromPort: 'right', toPort: 'top', rightLabel: 'Нет', style: 'ortho' });
+      }
+
+      const branchExitGap = useBracesStyle ? 58 : 36;
+      curY = Math.max(thenRes.endY, elseEndY) + branchExitGap;
+      const mergeConn = createNode('connector', '', cx, curY);
+      mergeConn.w = 14; mergeConn.h = 14;
+
+      if (thenRes.lastNode) {
+        createEdge(thenRes.lastNode.id, mergeConn.id, { fromPort: 'bottom', toPort: 'left', style: 'ortho' });
+      } else {
+        createEdge(decNode.id, mergeConn.id, { fromPort: 'left', toPort: 'left', rightLabel: 'Да', style: 'loop_left' });
+      }
+
+      if (elseLast) {
+        createEdge(elseLast.id, mergeConn.id, { fromPort: 'bottom', toPort: 'right', style: 'ortho' });
+      } else {
+        createEdge(decNode.id, mergeConn.id, {
+          fromPort: 'right',
+          toPort: 'right',
+          rightLabel: 'Нет',
+          style: 'bypass_right',
+          bendOffset: 0
+        });
+      }
+
+      curY += mergeConn.h + GAP_Y;
+      lastNode = mergeConn;
+    } else if (item.kind === 'loop') {
+      const loopHeaderText = showKeywords ? `${item.loopType} (${item.header})` : item.header;
+
+      if (useGostLoopBounds) {
+        const loopId = `Цикл ${globalLoopCounter++}`;
+        const startLoopNode = createNode('loop_start', `${loopId}\n${loopHeaderText}`, cx, curY);
+        connectFromLast(startLoopNode);
+
+        const entryGap = useBracesStyle ? 54 : GAP_Y;
+        if (useBracesStyle) {
+          createNode('brace', '{', cx - 42, curY + startLoopNode.h + 5);
+        }
+        curY += startLoopNode.h + entryGap;
+
+        const bodyRes = buildSequenceOnCanvas(
+          item.body,
+          cx,
+          curY,
+          startLoopNode,
+          depth + 1,
+          useGostLoopBounds,
+          showKeywords,
+          '',
+          useBracesStyle
+        );
+        const exitGap = useBracesStyle ? 54 : GAP_Y;
+        if (useBracesStyle) {
+          createNode('brace', '}', cx - 42, bodyRes.endY + 5);
+        }
+        curY = bodyRes.endY + exitGap;
+
+        const endLoopNode = createNode('loop_end', loopId, cx, curY);
+        if (bodyRes.lastNode) createEdge(bodyRes.lastNode.id, endLoopNode.id, { style: 'ortho' });
+        curY += endLoopNode.h + GAP_Y;
+        lastNode = endLoopNode;
+      } else {
+        const headType = item.loopType === 'for' ? 'prep' : 'decision';
+        const headNode = createNode(headType, loopHeaderText, cx, curY);
+        connectFromLast(headNode);
+
+        const loopEntryGap = useBracesStyle ? 56 : GAP_Y;
+        if (useBracesStyle) {
+          createNode('brace', '{', cx - 42, curY + headNode.h + 5);
+        }
+        curY += headNode.h + loopEntryGap;
+
+        const bodyRes = buildSequenceOnCanvas(
+          item.body,
+          cx,
+          curY,
+          headNode,
+          depth + 1,
+          useGostLoopBounds,
+          showKeywords,
+          'Да',
+          useBracesStyle
+        );
+        if (bodyRes.lastNode && bodyRes.lastNode !== headNode) {
+          createEdge(bodyRes.lastNode.id, headNode.id, {
+            fromPort: 'bottom',
+            toPort: 'left',
+            style: 'loop_left',
+            bendOffset: 0
+          });
+          if (useBracesStyle) {
+            createNode('brace', '}', cx - 42, bodyRes.endY + 4);
+          }
+        }
+
+        curY = bodyRes.endY + (useBracesStyle ? 76 : 52);
+        const loopExitConn = createNode('connector', '', cx, curY);
+        loopExitConn.w = 14; loopExitConn.h = 14;
+        createEdge(headNode.id, loopExitConn.id, {
+          fromPort: 'right',
+          toPort: 'right',
+          rightLabel: 'Нет',
+          style: 'bypass_right',
+          bendOffset: 0
+        });
+
+        curY += loopExitConn.h + GAP_Y;
+        lastNode = loopExitConn;
+      }
+    } else if (item.kind === 'dowhile') {
+      const condText = showKeywords ? `while (${item.cond})` : item.cond;
+
+      if (useGostLoopBounds) {
+        const loopId = `Цикл ${globalLoopCounter++}`;
+        const startLoopNode = createNode('loop_start', loopId, cx, curY);
+        connectFromLast(startLoopNode);
+        if (useBracesStyle) {
+          createNode('brace', '{', cx - 42, curY + startLoopNode.h + 5);
+        }
+        curY += startLoopNode.h + (useBracesStyle ? 54 : GAP_Y);
+
+        const bodyRes = buildSequenceOnCanvas(
+          item.body,
+          cx,
+          curY,
+          startLoopNode,
+          depth + 1,
+          useGostLoopBounds,
+          showKeywords,
+          '',
+          useBracesStyle
+        );
+        if (useBracesStyle) {
+          createNode('brace', '}', cx - 42, bodyRes.endY + 5);
+        }
+        curY = bodyRes.endY + (useBracesStyle ? 54 : GAP_Y);
+
+        const endLoopNode = createNode('loop_end', `${condText}\n${loopId}`, cx, curY);
+        if (bodyRes.lastNode) createEdge(bodyRes.lastNode.id, endLoopNode.id, { style: 'ortho' });
+        curY += endLoopNode.h + GAP_Y;
+        lastNode = endLoopNode;
+      } else {
+        if (useBracesStyle) {
+          createNode('brace', '{', cx - 42, curY - 38);
+        }
+        const bodyRes = buildSequenceOnCanvas(
+          item.body,
+          cx,
+          curY,
+          lastNode,
+          depth + 1,
+          useGostLoopBounds,
+          showKeywords,
+          pendingEdgeLabel,
+          useBracesStyle
+        );
+        pendingEdgeLabel = '';
+        if (!firstCreatedNode && bodyRes.firstNode) firstCreatedNode = bodyRes.firstNode;
+
+        if (useBracesStyle) {
+          createNode('brace', '}', cx - 42, bodyRes.endY + 4);
+        }
+        curY = bodyRes.endY + (useBracesStyle ? 56 : GAP_Y);
+        const condNode = createNode('decision', condText, cx, curY);
+        if (!firstCreatedNode) firstCreatedNode = condNode;
+        if (bodyRes.lastNode) createEdge(bodyRes.lastNode.id, condNode.id, { style: 'ortho' });
+        if (bodyRes.firstNode) {
+          createEdge(condNode.id, bodyRes.firstNode.id, {
+            fromPort: 'left',
+            toPort: 'left',
+            rightLabel: 'Да',
+            style: 'loop_left',
+            bendOffset: 0
+          });
+        }
+        curY += condNode.h + GAP_Y;
+        lastNode = condNode;
+      }
+    }
+  });
+
+  return { endY: Math.max(startY, curY - GAP_Y), lastNode, firstNode: firstCreatedNode };
+}
+
+// --- 5. УМНАЯ РАЗВОДКА СВЯЗЕЙ ПОД 90° БЕЗ ПЕРЕКРЫТИЙ ВЛОЖЕННЫХ КОНТУРОВ ---
+let usedVerticalTracks = [];
+let usedHorizontalTracks = [];
+
+function resetRoutingTracks() {
+  usedVerticalTracks = [];
+  usedHorizontalTracks = [];
+}
+
+function findBlockingObstacleOnVertical(x, y1, y2, excludeIds) {
+  const yMin = Math.min(y1, y2) + 4;
+  const yMax = Math.max(y1, y2) - 4;
+  if (yMax <= yMin) return null;
+
+  for (let nd of nodes) {
+    if (excludeIds && excludeIds.has(nd.id)) continue;
+    if (nd.type === 'brace' || nd.type === 'comment') continue;
+    const left = nd.cx - nd.w / 2 - 12;
+    const right = nd.cx + nd.w / 2 + 12;
+    const top = nd.y - 6;
+    const bottom = nd.y + nd.h + 6;
+    if (x > left && x < right && Math.max(top, yMin) < Math.min(bottom, yMax)) {
+      return nd;
+    }
+  }
+  return null;
+}
+
+function findBlockingObstacleOnHorizontal(y, x1, x2, excludeIds) {
+  const xMin = Math.min(x1, x2) + 4;
+  const xMax = Math.max(x1, x2) - 4;
+  if (xMax <= xMin) return null;
+
+  for (let nd of nodes) {
+    if (excludeIds && excludeIds.has(nd.id)) continue;
+    if (nd.type === 'brace' || nd.type === 'comment') continue;
+    const left = nd.cx - nd.w / 2 - 8;
+    const right = nd.cx + nd.w / 2 + 8;
+    const top = nd.y - 8;
+    const bottom = nd.y + nd.h + 8;
+    if (y > top && y < bottom && Math.max(left, xMin) < Math.min(right, xMax)) {
+      return nd;
+    }
+  }
+  return null;
+}
+
+function claimFreeVerticalTrack(x, y1, y2, edgeId, stepDir = 1, excludeIds = null) {
+  const yMin = Math.min(y1, y2);
+  const yMax = Math.max(y1, y2);
+  if (yMax - yMin < 6) return x;
+
+  let candidateX = x;
+  let attempts = 0;
+  while (attempts < 30) {
+    const trackConflict = usedVerticalTracks.some(t =>
+      t.edgeId !== edgeId &&
+      Math.abs(t.x - candidateX) < 18 &&
+      Math.max(t.y1, yMin) < Math.min(t.y2, yMax) - 4
+    );
+    const nodeConflict = findBlockingObstacleOnVertical(candidateX, yMin, yMax, excludeIds);
+    if (!trackConflict && !nodeConflict) break;
+    attempts++;
+    candidateX = x + stepDir * attempts * 20;
+  }
+
+  usedVerticalTracks.push({ x: candidateX, y1: yMin, y2: yMax, edgeId });
+  return candidateX;
+}
+
+function claimFreeHorizontalTrack(y, x1, x2, edgeId, excludeIds = null) {
+  const xMin = Math.min(x1, x2);
+  const xMax = Math.max(x1, x2);
+  if (xMax - xMin < 6) return y;
+
+  let candidateY = y;
+  let attempts = 0;
+  while (attempts < 24) {
+    const trackConflict = usedHorizontalTracks.some(t =>
+      t.edgeId !== edgeId &&
+      Math.abs(t.y - candidateY) < 14 &&
+      Math.max(t.x1, xMin) < Math.min(t.x2, xMax) - 4
+    );
+    const nodeConflict = findBlockingObstacleOnHorizontal(candidateY, xMin, xMax, excludeIds);
+    if (!trackConflict && !nodeConflict) break;
+    attempts++;
+    const mult = Math.ceil(attempts / 2);
+    const dir = (attempts % 2 === 1) ? 1 : -1;
+    candidateY = y + dir * mult * 14;
+  }
+
+  usedHorizontalTracks.push({ y: candidateY, x1: xMin, x2: xMax, edgeId });
+  return candidateY;
+}
+
+function getSpanBoundsInYRange(y1, y2, refX = 320, fnId = null) {
+  const yMin = Math.min(y1, y2) - 12;
+  const yMax = Math.max(y1, y2) + 12;
+  let minLeft = Infinity;
+  let maxRight = -Infinity;
+
+  nodes.forEach(nd => {
+    if (nd.type === 'comment') return;
+    if (fnId && nd.fnId && nd.fnId !== fnId) return;
+    if (!fnId && Math.abs(nd.cx - refX) > 2000) return;
+
+    if (nd.y + nd.h >= yMin && nd.y <= yMax) {
+      minLeft = Math.min(minLeft, nd.cx - nd.w / 2);
+      maxRight = Math.max(maxRight, nd.cx + nd.w / 2);
+    }
+  });
+
+  if (minLeft === Infinity) { minLeft = refX - 100; maxRight = refX + 100; }
+
+  usedVerticalTracks.forEach(t => {
+    if (!fnId && Math.abs(t.x - refX) > 2000) return;
+    if (Math.max(t.y1, yMin) < Math.min(t.y2, yMax)) {
+      minLeft = Math.min(minLeft, t.x);
+      maxRight = Math.max(maxRight, t.x);
+    }
+  });
+
+  return { minLeft, maxRight };
+}
+
+function getPortCoords(node, port) {
+  const left = node.cx - node.w / 2;
+  const right = node.cx + node.w / 2;
+  const top = node.y;
+  const bottom = node.y + node.h;
+  const midY = node.y + node.h / 2;
+
+  if (port === 'top') return { x: node.cx, y: top };
+  if (port === 'bottom') return { x: node.cx, y: bottom };
+  if (port === 'left') return { x: left, y: midY };
+  if (port === 'right') return { x: right, y: midY };
+  return { x: node.cx, y: bottom };
+}
+
+function getPolylineMidpoint(pts) {
+  if (!pts || pts.length === 0) return { x: 300, y: 100 };
+  if (pts.length === 1) return { x: pts[0].x, y: pts[0].y };
+
+  let totalLen = 0;
+  const segs = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const len = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+    segs.push({ p1: pts[i], p2: pts[i + 1], len });
+    totalLen += len;
+  }
+
+  if (totalLen < 1) return { x: pts[0].x, y: pts[0].y };
+  const half = totalLen / 2;
+  let acc = 0;
+  for (let s of segs) {
+    if (acc + s.len >= half) {
+      const t = (half - acc) / (s.len || 1);
+      return {
+        x: Math.round(s.p1.x + (s.p2.x - s.p1.x) * t),
+        y: Math.round(s.p1.y + (s.p2.y - s.p1.y) * t)
+      };
+    }
+    acc += s.len;
+  }
+  return { x: pts[pts.length - 1].x, y: pts[pts.length - 1].y };
+}
+
+function computeOrthogonalPoints(p1, fromPort, p2, toPort, style, bendOffset = 0, fromNode = null, toNode = null, edgeId = 'temp') {
+  if (style === 'straight' || style === 'comm_link' || style === 'control_transfer') {
+    if (style === 'comm_link') {
+      const mx = (p1.x + p2.x) / 2;
+      const my = (p1.y + p2.y) / 2;
+      return [p1, { x: mx - 8, y: my - 6 }, { x: mx + 8, y: my + 6 }, p2];
+    }
+    return [p1, p2];
+  }
+
+  const excludeIds = new Set();
+  if (fromNode) excludeIds.add(fromNode.id);
+  if (toNode) excludeIds.add(toNode.id);
+  const fnScope = (fromNode && fromNode.fnId) || (toNode && toNode.fnId) || null;
+
+  if (style === 'loop_left') {
+    const bounds = getSpanBoundsInYRange(p1.y, p2.y, p2.x, fnScope);
+    const rawLeftX = Math.min(bounds.minLeft - 42, p1.x - 54, p2.x - 54) + bendOffset;
+    const leftX = claimFreeVerticalTrack(rawLeftX, p1.y, p2.y, edgeId, -1, excludeIds);
+    const downY = fromPort === 'bottom' ? claimFreeHorizontalTrack(p1.y + 48, leftX, p1.x, edgeId, excludeIds) : p1.y;
+    const topY = claimFreeHorizontalTrack(p2.y, leftX, p2.x, edgeId, excludeIds);
+
+    if (fromPort === 'bottom') {
+      return [p1, { x: p1.x, y: downY }, { x: leftX, y: downY }, { x: leftX, y: topY }, { x: p2.x, y: topY }, p2];
+    }
+    return [p1, { x: leftX, y: p1.y }, { x: leftX, y: topY }, p2];
+  }
+
+  if (style === 'bypass_right') {
+    const bounds = getSpanBoundsInYRange(p1.y, p2.y, p1.x, fnScope);
+    const rawRightX = Math.max(bounds.maxRight + 42, p1.x + 54, p2.x + 54) + bendOffset;
+    const rightX = claimFreeVerticalTrack(rawRightX, p1.y, p2.y, edgeId, 1, excludeIds);
+    const startY = claimFreeHorizontalTrack(p1.y, p1.x, rightX, edgeId, excludeIds);
+    const endY = claimFreeHorizontalTrack(p2.y, p2.x, rightX, edgeId, excludeIds);
+    return [p1, { x: rightX, y: startY }, { x: rightX, y: endY }, p2];
+  }
+
+  const isFromVert = (fromPort === 'top' || fromPort === 'bottom');
+  const isToVert = (toPort === 'top' || toPort === 'bottom');
+  const isFromHoriz = (fromPort === 'left' || fromPort === 'right');
+  const isToHoriz = (toPort === 'left' || toPort === 'right');
+
+  if (fromPort === 'edge' && toPort === 'edge') {
+    if (Math.abs(p1.x - p2.x) < 3 && bendOffset === 0) return [p1, p2];
+    const midX = claimFreeVerticalTrack(Math.round((p1.x + p2.x) / 2) + bendOffset, p1.y, p2.y, edgeId, 1, excludeIds);
+    return [p1, { x: midX, y: p1.y }, { x: midX, y: p2.y }, p2];
+  }
+
+  if (fromPort === 'edge') {
+    if (isToHoriz) {
+      if (Math.abs(p1.y - p2.y) < 3 && bendOffset === 0) return [p1, p2];
+      const midX = claimFreeVerticalTrack(Math.round((p1.x + p2.x) / 2) + bendOffset, p1.y, p2.y, edgeId, 1, excludeIds);
+      return [p1, { x: midX, y: p1.y }, { x: midX, y: p2.y }, p2];
+    } else {
+      if (Math.abs(p1.x - p2.x) < 3 && bendOffset === 0) return [p1, p2];
+      const trackX = claimFreeVerticalTrack(p2.x + bendOffset, p1.y, p2.y, edgeId, 1, excludeIds);
+      return [p1, { x: trackX, y: p1.y }, { x: trackX, y: p2.y }, p2];
+    }
+  }
+
+  if (toPort === 'edge') {
+    if (isFromHoriz) {
+      if (Math.abs(p1.y - p2.y) < 3 && bendOffset === 0) return [p1, p2];
+      const midX = claimFreeVerticalTrack(Math.round((p1.x + p2.x) / 2) + bendOffset, p1.y, p2.y, edgeId, 1, excludeIds);
+      return [p1, { x: midX, y: p1.y }, { x: midX, y: p2.y }, p2];
+    } else {
+      if (Math.abs(p1.x - p2.x) < 3 && bendOffset === 0) return [p1, p2];
+      const trackY = claimFreeHorizontalTrack(p2.y + bendOffset, p1.x, p2.x, edgeId, excludeIds);
+      return [p1, { x: p1.x, y: trackY }, { x: p2.x, y: trackY }, p2];
+    }
+  }
+
+  if (isFromVert && isToVert) {
+    if (Math.abs(p1.x - p2.x) < 4 && bendOffset === 0) {
+      const obstacle = findBlockingObstacleOnVertical(p1.x, p1.y, p2.y, excludeIds);
+      if (!obstacle && p2.y >= p1.y) {
+        usedVerticalTracks.push({ x: p1.x, y1: p1.y, y2: p2.y, edgeId });
+        return [p1, p2];
+      }
+      const detourBase = obstacle ? (obstacle.cx + obstacle.w / 2 + 36) : (p1.x + 90);
+      const detourX = claimFreeVerticalTrack(detourBase, p1.y, p2.y, edgeId, 1, excludeIds);
+      const yOut = p1.y + (fromPort === 'bottom' ? 16 : -16);
+      const yIn = p2.y + (toPort === 'top' ? -16 : 16);
+      return [p1, { x: p1.x, y: yOut }, { x: detourX, y: yOut }, { x: detourX, y: yIn }, { x: p2.x, y: yIn }, p2];
+    }
+    const midY = claimFreeHorizontalTrack(Math.round((p1.y + p2.y) / 2) + bendOffset, p1.x, p2.x, edgeId, excludeIds);
+    return [p1, { x: p1.x, y: midY }, { x: p2.x, y: midY }, p2];
+  }
+
+  if (isFromHoriz && isToHoriz) {
+    if (Math.abs(p1.y - p2.y) < 4 && bendOffset === 0) {
+      usedHorizontalTracks.push({ y: p1.y, x1: Math.min(p1.x, p2.x), x2: Math.max(p1.x, p2.x), edgeId });
+      return [p1, p2];
+    }
+    const midX = claimFreeVerticalTrack(Math.round((p1.x + p2.x) / 2) + bendOffset, p1.y, p2.y, edgeId, 1, excludeIds);
+    return [p1, { x: midX, y: p1.y }, { x: midX, y: p2.y }, p2];
+  }
+
+  if (isFromHoriz && isToVert) {
+    const dir = fromPort === 'right' ? 1 : -1;
+    const targetX = p2.x + bendOffset;
+    if ((dir === 1 && targetX >= p1.x + 10) || (dir === -1 && targetX <= p1.x - 10)) {
+      if (bendOffset === 0) {
+        usedHorizontalTracks.push({ y: p1.y, x1: Math.min(p1.x, p2.x), x2: Math.max(p1.x, p2.x), edgeId });
+        usedVerticalTracks.push({ x: p2.x, y1: Math.min(p1.y, p2.y), y2: Math.max(p1.y, p2.y), edgeId });
+        return [p1, { x: p2.x, y: p1.y }, p2];
+      }
+      const midY = Math.round((p1.y + p2.y) / 2);
+      return [p1, { x: targetX, y: p1.y }, { x: targetX, y: midY }, { x: p2.x, y: midY }, p2];
+    }
+    const stepOutX = p1.x + dir * Math.max(28, Math.abs(bendOffset));
+    const midY = Math.round((p1.y + p2.y) / 2);
+    return [p1, { x: stepOutX, y: p1.y }, { x: stepOutX, y: midY }, { x: p2.x, y: midY }, p2];
+  }
+
+  if (isFromVert && isToHoriz) {
+    const targetY = p2.y + bendOffset;
+    if (bendOffset === 0) {
+      usedVerticalTracks.push({ x: p1.x, y1: Math.min(p1.y, p2.y), y2: Math.max(p1.y, p2.y), edgeId });
+      usedHorizontalTracks.push({ y: p2.y, x1: Math.min(p1.x, p2.x), x2: Math.max(p1.x, p2.x), edgeId });
+      return [p1, { x: p1.x, y: p2.y }, p2];
+    }
+    const approachX = toPort === 'left' ? p2.x - 24 : p2.x + 24;
+    return [p1, { x: p1.x, y: targetY }, { x: approachX, y: targetY }, { x: approachX, y: p2.y }, p2];
+  }
+
+  return [p1, p2];
+}
+
+function getEdgePoints(edge, visited = new Set()) {
+  if (!edge || visited.has(edge.id)) return [{ x: 300, y: 100 }, { x: 300, y: 140 }];
+  visited.add(edge.id);
+
+  let p1 = null;
+  let fromNode = null;
+  let fromPort = edge.fromPort || 'bottom';
+
+  if (edge.fromEdge) {
+    const parentEdge = edges.find(pe => pe.id === edge.fromEdge);
+    if (!parentEdge) return null;
+    const parentPts = getEdgePoints(parentEdge, new Set(visited));
+    if (!parentPts) return null;
+    p1 = getPolylineMidpoint(parentPts);
+    fromPort = 'edge';
+  } else {
+    fromNode = nodes.find(n => n.id === edge.from);
+    if (!fromNode) return null;
+    p1 = getPortCoords(fromNode, fromPort);
+  }
+
+  let p2 = null;
+  let toNode = null;
+  let toPort = edge.toPort || 'top';
+
+  if (edge.toEdge) {
+    const targetEdge = edges.find(te => te.id === edge.toEdge);
+    if (!targetEdge) return null;
+    const targetPts = getEdgePoints(targetEdge, new Set(visited));
+    if (!targetPts) return null;
+    p2 = getPolylineMidpoint(targetPts);
+    toPort = 'edge';
+  } else {
+    toNode = nodes.find(n => n.id === edge.to);
+    if (!toNode) return null;
+    p2 = getPortCoords(toNode, toPort);
+  }
+
+  return computeOrthogonalPoints(p1, fromPort, p2, toPort, edge.style || 'ortho', edge.bendOffset || 0, fromNode, toNode, edge.id);
+}
+
+function getEdgeMidpoint(edge) {
+  const pts = getEdgePoints(edge);
+  if (!pts) return { x: 300, y: 100 };
+  return getPolylineMidpoint(pts);
+}
+
+// --- 6. ОТРИСОВКА РАМКИ И ШТАМПА ГОСТ ---
+function renderGostFrameAndStamp(cachedEdgePts) {
+  const frameLayer = document.getElementById('gostFrameLayer');
+  if (!showGostFrame || nodes.length === 0) {
+    frameLayer.innerHTML = '';
+    return;
+  }
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  nodes.forEach(n => {
+    minX = Math.min(minX, n.cx - n.w / 2);
+    maxX = Math.max(maxX, n.cx + n.w / 2);
+    minY = Math.min(minY, n.y);
+    maxY = Math.max(maxY, n.y + n.h);
+  });
+  if (cachedEdgePts) {
+    cachedEdgePts.forEach(pts => {
+      if (!pts) return;
+      pts.forEach(p => {
+        minX = Math.min(minX, p.x);
+        maxX = Math.max(maxX, p.x);
+        minY = Math.min(minY, p.y);
+        maxY = Math.max(maxY, p.y);
+      });
+    });
+  }
+
+  const padSide = 55;
+  const padTop = 42;
+  const stampH = 104;
+  const padBottom = stampH + 46;
+
+  const rawInW = (maxX - minX) + padSide * 2;
+  const inW = Math.max(620, Math.ceil(rawInW));
+  const diagramCenterX = (minX + maxX) / 2;
+
+  const inX = Math.floor(diagramCenterX - inW / 2);
+  const inY = Math.floor(minY - padTop);
+  const inH = Math.ceil((maxY - minY) + padTop + padBottom);
+
+  const sheetX = inX - 24;
+  const sheetY = inY - 10;
+  const sheetW = inW + 34;
+  const sheetH = inH + 20;
+
+  const stW = Math.min(470, inW);
+  const stH = stampH;
+  const stX = inX + inW - stW;
+  const stY = inY + inH - stH;
+
+  const col1X = stX + 185;
+  const colRoleX = stX + 72;
+  const col2X = stX + stW - 95;
+
+  const rowHeaderY = stY + 28;
+  const rowMid1Y = stY + 53;
+  const rowMid2Y = stY + 78;
+
+  const centerBoxMidX = Math.round((col1X + col2X) / 2);
+  const rightBoxMidX = Math.round((col2X + stX + stW) / 2);
+
+  frameLayer.innerHTML = `
+    <g class="gost-sheet-group" ondblclick="openStampModal(event)">
+      <rect x="${sheetX}" y="${sheetY}" width="${sheetW}" height="${sheetH}" class="gost-frame-outer"/>
+      <rect x="${inX}" y="${inY}" width="${inW}" height="${inH}" class="gost-frame-inner"/>
+
+      <rect x="${stX}" y="${stY}" width="${stW}" height="${stH}" class="gost-stamp-box"/>
+
+      <line x1="${stX}" y1="${rowHeaderY}" x2="${stX + stW}" y2="${rowHeaderY}" class="gost-stamp-line"/>
+
+      <line x1="${col1X}" y1="${rowHeaderY}" x2="${col1X}" y2="${stY + stH}" class="gost-stamp-line"/>
+      <line x1="${col2X}" y1="${rowHeaderY}" x2="${col2X}" y2="${stY + stH}" class="gost-stamp-line"/>
+
+      <line x1="${colRoleX}" y1="${rowHeaderY}" x2="${colRoleX}" y2="${stY + stH}" class="gost-stamp-thin"/>
+      <line x1="${stX}" y1="${rowMid1Y}" x2="${col1X}" y2="${rowMid1Y}" class="gost-stamp-thin"/>
+      <line x1="${stX}" y1="${rowMid2Y}" x2="${col1X}" y2="${rowMid2Y}" class="gost-stamp-thin"/>
+
+      <line x1="${col2X}" y1="${rowMid1Y}" x2="${stX + stW}" y2="${rowMid1Y}" class="gost-stamp-thin"/>
+      <line x1="${col2X}" y1="${rowMid2Y}" x2="${stX + stW}" y2="${rowMid2Y}" class="gost-stamp-thin"/>
+
+      <text x="${stX + stW / 2}" y="${stY + 19}" font-size="12.5" font-weight="700" text-anchor="middle" class="gost-stamp-text">${escapeXml(gostStampData.doc)}</text>
+
+      <text x="${stX + 8}" y="${stY + 45}" font-size="11" class="gost-stamp-text">Выполнил</text>
+      <text x="${colRoleX + 8}" y="${stY + 45}" font-size="11" font-weight="600" class="gost-stamp-text">${escapeXml(gostStampData.author)}</text>
+
+      <text x="${stX + 8}" y="${stY + 70}" font-size="11" class="gost-stamp-text">Проверил</text>
+      <text x="${colRoleX + 8}" y="${stY + 70}" font-size="11" font-weight="600" class="gost-stamp-text">${escapeXml(gostStampData.teacher)}</text>
+
+      <text x="${stX + 8}" y="${stY + 95}" font-size="11" class="gost-stamp-text">Группа</text>
+      <text x="${colRoleX + 8}" y="${stY + 95}" font-size="11" font-weight="600" class="gost-stamp-text">${escapeXml(gostStampData.group)}</text>
+
+      <text x="${centerBoxMidX}" y="${stY + 70}" font-size="14" font-weight="700" text-anchor="middle" class="gost-stamp-text">${escapeXml(gostStampData.title)}</text>
+
+      <text x="${rightBoxMidX}" y="${stY + 45}" font-size="11" text-anchor="middle" class="gost-stamp-text">Лист 1</text>
+      <text x="${rightBoxMidX}" y="${stY + 70}" font-size="10.5" text-anchor="middle" class="gost-stamp-text">${escapeXml(gostStampData.date)}</text>
+      <text x="${rightBoxMidX}" y="${stY + 95}" font-size="10.5" font-weight="600" text-anchor="middle" class="gost-stamp-text">ГОСТ 19.701</text>
+    </g>
+  `;
+}
+
+function getEdgeVerticalSpan(e) {
+  const n1 = nodes.find(n => n.id === e.from);
+  const n2 = nodes.find(n => n.id === e.to);
+  if (!n1 || !n2) return 0;
+  return Math.abs(n2.y - n1.y);
+}
+
+function renderAll() {
+  resetRoutingTracks();
+  const nodesLayer = document.getElementById('nodesLayer');
+  const edgesLayer = document.getElementById('edgesLayer');
+  const guidesLayer = document.getElementById('smartGuidesLayer');
+  const showGostNumbers = document.getElementById('optGostNumbers').checked;
+
+  const primaryEdges = edges
+    .filter(e => !e.fromEdge && !e.toEdge)
+    .sort((a, b) => getEdgeVerticalSpan(a) - getEdgeVerticalSpan(b));
+  const secondaryEdges = edges.filter(e => e.fromEdge || e.toEdge);
+
+  const orderedEdges = [...primaryEdges, ...secondaryEdges];
+  const cachedEdgePts = new Map();
+  orderedEdges.forEach(e => {
+    cachedEdgePts.set(e.id, getEdgePoints(e));
+  });
+
+  let edgesHtml = '';
+  edges.forEach(e => {
+    const pts = cachedEdgePts.get(e.id);
+    if (!pts || pts.length < 2) return;
+
+    const pathD = pts.map((pt, idx) => (idx === 0 ? `M ${pt.x} ${pt.y}` : `L ${pt.x} ${pt.y}`)).join(' ');
+    const mid = getPolylineMidpoint(pts);
+    const p1 = pts[0];
+
+    const isSel = e.id === selectedEdgeId ? 'selected' : '';
+    const dash = e.style === 'dashed' ? 'stroke-dasharray="6,5"' : '';
+    const marker = e.style === 'dashed' ? '' : 'marker-end="url(#arrowHead)"';
+
+    let controlTransferSvg = '';
+    if (e.style === 'control_transfer') {
+      controlTransferSvg = `<polygon points="${mid.x - 9},${mid.y - 7} ${mid.x + 9},${mid.y - 7} ${mid.x},${mid.y + 9}" class="flow-shape"/>`;
+    }
+
+    let leftHtml = '';
+    if (e.leftLabel) {
+      leftHtml = `<text x="${mid.x - 16}" y="${mid.y}" text-anchor="end" class="edge-label-text">${escapeXml(e.leftLabel)}</text>`;
+    }
+
+    let rightHtml = '';
+    if (e.rightLabel) {
+      const rLines = e.rightLabel.split('\n');
+      const baseX = e.fromPort === 'right' ? p1.x + 14 : (e.fromPort === 'left' ? p1.x - 14 : mid.x + 10);
+      const anchor = e.fromPort === 'left' ? 'end' : 'start';
+      const startLy = (e.fromPort === 'left' || e.fromPort === 'right') ? p1.y - 8 : mid.y - ((rLines.length - 1) * 9);
+      rLines.forEach((ln, idx) => {
+        rightHtml += `<text x="${baseX}" y="${startLy + idx * 18}" text-anchor="${anchor}" class="edge-label-text" font-weight="600">${escapeXml(ln)}</text>`;
+      });
+    }
+
+    let segmentHandlesHtml = '';
+    if (e.style !== 'straight' && e.style !== 'comm_link' && e.style !== 'control_transfer') {
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i];
+        const b = pts[i + 1];
+        const segLen = Math.hypot(b.x - a.x, b.y - a.y);
+        if (segLen < 18) continue;
+
+        const isVert = Math.abs(a.x - b.x) < 2;
+        const isHoriz = Math.abs(a.y - b.y) < 2;
+        const isMiddleSeg = (pts.length >= 3 && i > 0 && i < pts.length - 2) || (pts.length === 3 && i === 1);
+        if (!isMiddleSeg) continue;
+
+        const smx = Math.round((a.x + b.x) / 2);
+        const smy = Math.round((a.y + b.y) / 2);
+
+        if (isVert) {
+          segmentHandlesHtml += `
+            <line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="edge-seg-drag-v" onmousedown="startDragEdgeSegment('${e.id}', 'v', event)"/>
+            <rect x="${smx - 4}" y="${smy - 9}" width="8" height="18" rx="4" class="edge-elbow-pill" style="cursor:ew-resize;"
+              title="Потяните ЛКМ влево/вправо, чтобы сдвинуть колено связи"
+              onmousedown="startDragEdgeSegment('${e.id}', 'v', event)"/>`;
+        } else if (isHoriz) {
+          segmentHandlesHtml += `
+            <line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="edge-seg-drag-h" onmousedown="startDragEdgeSegment('${e.id}', 'h', event)"/>
+            <rect x="${smx - 9}" y="${smy - 4}" width="18" height="8" rx="4" class="edge-elbow-pill" style="cursor:ns-resize;"
+              title="Потяните ЛКМ вверх/вниз, чтобы сдвинуть колено связи"
+              onmousedown="startDragEdgeSegment('${e.id}', 'h', event)"/>`;
+        }
+      }
+    }
+
+    const edgeCenterPort = `<circle cx="${mid.x}" cy="${mid.y}" class="edge-port-dot"
+      title="Центр связи: потяните отсюда или сюда любую связь / комментарий"
+      onmousedown="startConnectFromEdge('${e.id}', event)"
+      onmouseup="finishConnectToEdge('${e.id}', event)"/>`;
+
+    edgesHtml += `<g class="flow-edge ${isSel}" onclick="selectEdge('${e.id}', event)" ondblclick="openInlineEditor(null, event)">
+      <path d="${pathD}" class="flow-edge-hit"/>
+      <path d="${pathD}" class="flow-edge-line" ${dash} ${marker}/>
+      ${segmentHandlesHtml}
+      ${controlTransferSvg}
+      ${leftHtml}
+      ${rightHtml}
+      ${edgeCenterPort}
+    </g>`;
+  });
+  edgesLayer.innerHTML = edgesHtml;
+
+  let nodesHtml = '';
+  let gostCounter = 1;
+
+  nodes.forEach(n => {
+    const isSel = selectedNodeIds.has(n.id) ? 'selected' : '';
+    const x = n.cx - n.w / 2;
+    const y = n.y;
+    const w = n.w;
+    const h = n.h;
+
+    let shapeSvg = '';
+    if (n.type === 'terminator') {
+      const rx = Math.min(w / 2, h / 2);
+      shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" ry="${rx}" class="flow-shape"/>`;
+    } else if (n.type === 'predefined') {
+      const inset = 16;
+      shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" class="flow-shape"/>
+        <line x1="${x + inset}" y1="${y}" x2="${x + inset}" y2="${y + h}" class="flow-shape"/>
+        <line x1="${x + w - inset}" y1="${y}" x2="${x + w - inset}" y2="${y + h}" class="flow-shape"/>`;
+    } else if (n.type === 'process') {
+      shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" class="flow-shape"/>`;
+    } else if (n.type === 'manual_op') {
+      const inset = 18;
+      const pts = `${x},${y} ${x + w},${y} ${x + w - inset},${y + h} ${x + inset},${y + h}`;
+      shapeSvg = `<polygon points="${pts}" class="flow-shape"/>`;
+    } else if (n.type === 'prep') {
+      const ind = 20;
+      const pts = `${x + ind},${y} ${x + w - ind},${y} ${x + w},${y + h / 2} ${x + w - ind},${y + h} ${x + ind},${y + h} ${x},${y + h / 2}`;
+      shapeSvg = `<polygon points="${pts}" class="flow-shape"/>`;
+    } else if (n.type === 'decision') {
+      const pts = `${n.cx},${y} ${x + w},${y + h / 2} ${n.cx},${y + h} ${x},${y + h / 2}`;
+      shapeSvg = `<polygon points="${pts}" class="flow-shape"/>`;
+    } else if (n.type === 'parallel') {
+      shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="transparent" stroke="none" class="flow-comment-hit"/>
+        <line x1="${x}" y1="${y + 6}" x2="${x + w}" y2="${y + 6}" class="flow-shape"/>
+        <line x1="${x}" y1="${y + h - 6}" x2="${x + w}" y2="${y + h - 6}" class="flow-shape"/>`;
+    } else if (n.type === 'loop_start') {
+      const cut = 16;
+      const pts = `${x + cut},${y} ${x + w - cut},${y} ${x + w},${y + cut} ${x + w},${y + h} ${x},${y + h} ${x},${y + cut}`;
+      shapeSvg = `<polygon points="${pts}" class="flow-shape"/>`;
+    } else if (n.type === 'loop_end') {
+      const cut = 16;
+      const pts = `${x},${y} ${x + w},${y} ${x + w},${y + h - cut} ${x + w - cut},${y + h} ${x + cut},${y + h} ${x},${y + h - cut}`;
+      shapeSvg = `<polygon points="${pts}" class="flow-shape"/>`;
+    } else if (n.type === 'striped_process') {
+      shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" class="flow-shape"/>
+        <line x1="${x}" y1="${y + 16}" x2="${x + w}" y2="${y + 16}" class="flow-shape"/>`;
+    } else if (n.type === 'io') {
+      const skew = Math.max(18, Math.min(28, Math.round(h * 0.28)));
+      const pts = `${x + skew},${y} ${x + w},${y} ${x + w - skew},${y + h} ${x},${y + h}`;
+      shapeSvg = `<polygon points="${pts}" class="flow-shape"/>`;
+    } else if (n.type === 'stored_data') {
+      const c = 18;
+      shapeSvg = `<path d="M ${x + c} ${y} L ${x + w} ${y} Q ${x + w - c} ${y + h / 2} ${x + w} ${y + h} L ${x + c} ${y + h} Q ${x - c / 2} ${y + h / 2} ${x + c} ${y} Z" class="flow-shape"/>`;
+    } else if (n.type === 'ram') {
+      shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" class="flow-shape"/>
+        <line x1="${x + 14}" y1="${y}" x2="${x + 14}" y2="${y + h}" class="flow-shape"/>
+        <line x1="${x}" y1="${y + 12}" x2="${x + w}" y2="${y + 12}" class="flow-shape"/>`;
+    } else if (n.type === 'seq_storage') {
+      const r = Math.min(w, h) / 2;
+      shapeSvg = `<circle cx="${n.cx}" cy="${y + h / 2}" r="${r}" class="flow-shape"/>
+        <line x1="${n.cx}" y1="${y + h / 2 + r}" x2="${n.cx + r + 10}" y2="${y + h / 2 + r}" class="flow-shape"/>`;
+    } else if (n.type === 'direct_storage') {
+      const rx = 14;
+      const ry = h / 2;
+      shapeSvg = `<path d="M ${x + rx} ${y} L ${x + w - rx} ${y} A ${rx} ${ry} 0 0 1 ${x + w - rx} ${y + h} L ${x + rx} ${y + h} A ${rx} ${ry} 0 0 1 ${x + rx} ${y} Z" class="flow-shape"/>
+        <ellipse cx="${x + w - rx}" cy="${y + ry}" rx="${rx}" ry="${ry}" class="flow-shape"/>`;
+    } else if (n.type === 'document') {
+      const wy = y + h - 8;
+      shapeSvg = `<path d="M ${x} ${y} L ${x + w} ${y} L ${x + w} ${wy} Q ${x + w * 0.75} ${y + h + 8} ${n.cx} ${wy} Q ${x + w * 0.25} ${y + h - 18} ${x} ${wy} Z" class="flow-shape"/>`;
+    } else if (n.type === 'manual_input') {
+      const slope = 16;
+      const pts = `${x},${y + slope} ${x + w},${y} ${x + w},${y + h} ${x},${y + h}`;
+      shapeSvg = `<polygon points="${pts}" class="flow-shape"/>`;
+    } else if (n.type === 'card') {
+      const cut = 18;
+      const pts = `${x + cut},${y} ${x + w},${y} ${x + w},${y + h} ${x},${y + h} ${x},${y + cut}`;
+      shapeSvg = `<polygon points="${pts}" class="flow-shape"/>`;
+    } else if (n.type === 'paper_tape') {
+      const topY = y + 6;
+      const botY = y + h - 6;
+      shapeSvg = `<path d="M ${x} ${topY} Q ${x + w * 0.25} ${y - 4} ${n.cx} ${topY} Q ${x + w * 0.75} ${y + 16} ${x + w} ${topY} L ${x + w} ${botY} Q ${x + w * 0.75} ${y + h + 4} ${n.cx} ${botY} Q ${x + w * 0.25} ${y + h - 16} ${x} ${botY} Z" class="flow-shape"/>`;
+    } else if (n.type === 'display') {
+      const c = 22;
+      shapeSvg = `<path d="M ${x + c} ${y} L ${x + w - c} ${y} A ${c} ${h / 2} 0 0 1 ${x + w - c} ${y + h} L ${x + c} ${y + h} Q ${x + 6} ${y + h * 0.75} ${x} ${y + h / 2} Q ${x + 6} ${y + h * 0.25} ${x + c} ${y} Z" class="flow-shape"/>`;
+    } else if (n.type === 'comment') {
+      const bW = 16;
+      shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" class="flow-comment-hit"/>
+        <path d="M ${x + bW} ${y} L ${x} ${y} L ${x} ${y + h} L ${x + bW} ${y + h}" class="flow-comment-bracket"/>`;
+    } else if (n.type === 'connector') {
+      shapeSvg = `<circle cx="${n.cx}" cy="${y + h / 2}" r="${Math.min(w, h) / 2}" class="flow-shape"/>`;
+    } else if (n.type === 'omission') {
+      shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" class="flow-brace-box"/>
+        <text x="${n.cx}" y="${y + h / 2}" font-size="24" font-weight="bold" class="flow-brace-svg-text">${escapeXml(n.text.trim() || '...')}</text>`;
+    } else if (n.type === 'brace') {
+      const fontSize = Math.max(22, Math.round(h * 0.78));
+      shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" class="flow-brace-box"/>
+        <text x="${n.cx}" y="${y + h / 2}" font-size="${fontSize}" class="flow-brace-svg-text">${escapeXml(n.text.trim() || '{')}</text>`;
+    }
+
+    let gostNumSvg = '';
+    if (showGostNumbers && n.type !== 'brace' && n.type !== 'comment' && n.type !== 'connector' && n.type !== 'omission') {
+      gostNumSvg = `<text x="${x + 2}" y="${y - 6}" class="flow-gost-num">${gostCounter++}</text>`;
+    }
+
+    const lines = String(n.text || '').split('\n');
+    const lineHeight = 18;
+    const totalTextH = (lines.length - 1) * lineHeight;
+    const startTextY = y + h / 2 - totalTextH / 2 + 4;
+
+    let textSvg = '';
+    if (n.type === 'brace' || n.type === 'omission') {
+      textSvg = '';
+    } else if (n.type === 'comment') {
+      lines.forEach((ln, idx) => {
+        textSvg += `<text x="${x + 12}" y="${startTextY + idx * lineHeight}" class="flow-text-left">${escapeXml(ln)}</text>`;
+      });
+    } else {
+      lines.forEach((ln, idx) => {
+        textSvg += `<text x="${n.cx}" y="${startTextY + idx * lineHeight}" class="flow-text">${escapeXml(ln)}</text>`;
+      });
+    }
+
+    let ports = '';
+    if (n.type !== 'brace') {
+      ports = ['top', 'bottom', 'left', 'right'].map(p => {
+        const pt = getPortCoords(n, p);
+        return `<circle cx="${pt.x}" cy="${pt.y}" class="port-dot" onmousedown="startConnect('${n.id}', '${p}', event)" onmouseup="finishConnect('${n.id}', '${p}', event)"/>`;
+      }).join('');
+    }
+
+    const resizeHandle = `<rect x="${x + w - 5}" y="${y + h - 5}" width="10" height="10" rx="2" class="resize-handle" onmousedown="startResizeNode('${n.id}', event)"/>`;
+
+    nodesHtml += `<g class="flow-node ${isSel}" onmousedown="startDragNode('${n.id}', event)" ondblclick="openInlineEditor('${n.id}', event)">
+      ${gostNumSvg}
+      ${shapeSvg}
+      ${textSvg}
+      ${ports}
+      ${resizeHandle}
+    </g>`;
+  });
+
+  nodesLayer.innerHTML = nodesHtml;
+
+  let guidesHtml = '';
+  activeLaserGuides.forEach(g => {
+    guidesHtml += `<line x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" class="laser-guide-line"/>
+      <circle cx="${g.x1}" cy="${g.y1}" r="3.5" class="laser-guide-dot"/>
+      <circle cx="${g.x2}" cy="${g.y2}" r="3.5" class="laser-guide-dot"/>`;
+  });
+  guidesLayer.innerHTML = guidesHtml;
+
+  renderGostFrameAndStamp(cachedEdgePts);
+
+  updateViewportTransform();
+  updateFloatingToolbarPosition();
+}
+
+function updateFloatingToolbarPosition() {
+  const bar = document.getElementById('floatingToolbar');
+  const multiBadge = document.getElementById('floatMultiBadge');
+  const nodeTypeSel = document.getElementById('floatNodeTypeSelect');
+  const edgeStyleSel = document.getElementById('floatEdgeStyleSelect');
+  const scaleUpBtn = document.getElementById('floatScaleUpBtn');
+  const scaleDownBtn = document.getElementById('floatScaleDownBtn');
+  const dupBtn = document.getElementById('floatDupBtn');
+  const editBtn = document.getElementById('floatEditBtn');
+  const bendL = document.getElementById('floatBendLeftBtn');
+  const bendR = document.getElementById('floatBendRightBtn');
+  const commentEdgeBtn = document.getElementById('floatCommentEdgeBtn');
+
+  if (selectedNodeIds.size > 0) {
+    const selNodes = nodes.filter(n => selectedNodeIds.has(n.id));
+    if (selNodes.length === 0) {
+      bar.style.display = 'none';
+      return;
+    }
+
+    const avgCx = selNodes.reduce((s, n) => s + n.cx, 0) / selNodes.length;
+    const minY = Math.min(...selNodes.map(n => n.y));
+    const screenX = panX + avgCx * scale;
+    const screenY = panY + minY * scale - 10;
+
+    bar.style.display = 'flex';
+    bar.style.left = `${ Math.max(220, Math.min(canvasWrap.clientWidth - 220, screenX)) }px`;
+    bar.style.top = `${ Math.max(46, screenY) }px`;
+
+    if (selNodes.length > 1) {
+      multiBadge.style.display = 'inline-block';
+      multiBadge.textContent = `Выбрано: ${selNodes.length}`;
+      editBtn.style.display = 'none';
+    } else {
+      multiBadge.style.display = 'none';
+      editBtn.style.display = 'inline-flex';
+    }
+
+    nodeTypeSel.style.display = 'inline-block';
+    nodeTypeSel.value = selNodes[selNodes.length - 1].type;
+    scaleUpBtn.style.display = 'inline-flex';
+    scaleDownBtn.style.display = 'inline-flex';
+    dupBtn.style.display = 'inline-flex';
+
+    edgeStyleSel.style.display = 'none';
+    bendL.style.display = 'none';
+    bendR.style.display = 'none';
+    commentEdgeBtn.style.display = 'none';
+  } else if (selectedEdgeId) {
+    const ed = edges.find(x => x.id === selectedEdgeId);
+    if (!ed) {
+      bar.style.display = 'none';
+      return;
+    }
+    const mid = getEdgeMidpoint(ed);
+    const screenX = panX + mid.x * scale;
+    const screenY = panY + mid.y * scale - 12;
+
+    bar.style.display = 'flex';
+    bar.style.left = `${ Math.max(220, Math.min(canvasWrap.clientWidth - 220, screenX)) }px`;
+    bar.style.top = `${ Math.max(46, screenY) }px`;
+
+    multiBadge.style.display = 'none';
+    nodeTypeSel.style.display = 'none';
+    scaleUpBtn.style.display = 'none';
+    scaleDownBtn.style.display = 'none';
+    dupBtn.style.display = 'none';
+
+    editBtn.style.display = 'inline-flex';
+    edgeStyleSel.style.display = 'inline-block';
+    edgeStyleSel.value = ed.style || 'ortho';
+    bendL.style.display = 'inline-flex';
+    bendR.style.display = 'inline-flex';
+    commentEdgeBtn.style.display = 'inline-flex';
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+function escapeXml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// --- 7. РЕДАКТОР ТЕКСТА И МОДАЛЬНОЕ ОКНО ШТАМПА ГОСТ ---
+function toggleGostFrame() {
+  showGostFrame = !showGostFrame;
+  document.getElementById('gostFrameBtn').classList.toggle('active-toggle', showGostFrame);
+  renderAll();
+  saveHistoryState();
+}
+
+function openStampModal(ev) {
+  if (ev) ev.stopPropagation();
+  closeInlineEditor();
+  const modal = document.getElementById('stampModalBox');
+  document.getElementById('stampTitleInput').value = gostStampData.title;
+  document.getElementById('stampDocInput').value = gostStampData.doc;
+  document.getElementById('stampAuthorInput').value = gostStampData.author;
+  document.getElementById('stampGroupInput').value = gostStampData.group;
+  document.getElementById('stampTeacherInput').value = gostStampData.teacher;
+  modal.style.display = 'flex';
+}
+
+function closeStampModal() {
+  document.getElementById('stampModalBox').style.display = 'none';
+}
+
+function saveStampModal() {
+  gostStampData.title = document.getElementById('stampTitleInput').value.trim() || 'Лабораторная работа №1';
+  gostStampData.doc = document.getElementById('stampDocInput').value.trim() || 'Схема алгоритма программы';
+  gostStampData.author = document.getElementById('stampAuthorInput').value.trim() || 'Иванов И. И.';
+  gostStampData.group = document.getElementById('stampGroupInput').value.trim() || 'ИВТ-101';
+  gostStampData.teacher = document.getElementById('stampTeacherInput').value.trim() || 'Полякова О. А.';
+  showGostFrame = true;
+  document.getElementById('gostFrameBtn').classList.add('active-toggle');
+  closeStampModal();
+  renderAll();
+  saveHistoryState();
+}
+
+function openInlineEditor(nodeId, ev) {
+  if (ev) ev.stopPropagation();
+  closeStampModal();
+  const box = document.getElementById('inlineEditorBox');
+  const ta = document.getElementById('inlineTextarea');
+
+  const targetId = nodeId || getPrimarySelectedNodeId();
+  if (targetId) {
+    selectedNodeIds.clear();
+    selectedNodeIds.add(targetId);
+    selectedEdgeId = null;
+    renderAll();
+
+    const n = nodes.find(x => x.id === targetId);
+    if (!n) return;
+
+    const screenX = panX + n.cx * scale;
+    const screenY = panY + (n.y + n.h / 2) * scale;
+
+    box.style.display = 'flex';
+    box.style.left = `${ Math.max(140, Math.min(canvasWrap.clientWidth - 140, screenX)) }px`;
+    box.style.top = `${ Math.max(70, Math.min(canvasWrap.clientHeight - 70, screenY)) }px`;
+
+    ta.value = n.text;
+    ta.focus();
+    ta.select();
+  } else if (selectedEdgeId) {
+    const ed = edges.find(x => x.id === selectedEdgeId);
+    if (!ed) return;
+    const mid = getEdgeMidpoint(ed);
+    const screenX = panX + mid.x * scale;
+    const screenY = panY + mid.y * scale;
+
+    box.style.display = 'flex';
+    box.style.left = `${ Math.max(140, Math.min(canvasWrap.clientWidth - 140, screenX)) }px`;
+    box.style.top = `${ Math.max(70, Math.min(canvasWrap.clientHeight - 70, screenY)) }px`;
+
+    ta.value = ed.rightLabel || ed.leftLabel || '';
+    ta.focus();
+    ta.select();
+  }
+}
+
+function saveInlineEditor() {
+  const box = document.getElementById('inlineEditorBox');
+  if (box.style.display === 'none') return;
+  const val = document.getElementById('inlineTextarea').value;
+
+  const primaryId = getPrimarySelectedNodeId();
+  if (primaryId) {
+    const n = nodes.find(x => x.id === primaryId);
+    if (n) {
+      n.text = val;
+      const sz = calcAutoSize(n.type, n.text);
+      n.w = sz.w;
+      n.h = sz.h;
+      renderAll();
+      saveHistoryState();
+    }
+  } else if (selectedEdgeId) {
+    const ed = edges.find(x => x.id === selectedEdgeId);
+    if (ed) {
+      ed.rightLabel = val;
+      renderAll();
+      saveHistoryState();
+    }
+  }
+  box.style.display = 'none';
+}
+
+function closeInlineEditor() {
+  document.getElementById('inlineEditorBox').style.display = 'none';
+}
+
+document.getElementById('inlineTextarea').addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeInlineEditor();
+  } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    saveInlineEditor();
+  }
+});
+
+// --- 8. УПРАВЛЕНИЕ БЛОКАМИ, ГРУППАМИ, ПЕРЕТАСКИВАНИЕ КОЛЕН И ЛАЗЕРНЫЕ НАПРАВЛЯЮЩИЕ ---
+function addManualNode(type, defaultText, ev) {
+  closeInlineEditor();
+  if (type === 'comment' && selectedEdgeId) {
+    addCommentToSelectedEdge(defaultText);
+    return;
+  }
+
+  const wrapRect = canvasWrap.getBoundingClientRect();
+  const targetScreenX = wrapRect.width - 145;
+  let targetScreenY = wrapRect.height / 2;
+  if (ev && ev.clientY) {
+    targetScreenY = Math.max(70, Math.min(wrapRect.height - 80, ev.clientY - wrapRect.top));
+  }
+
+  const offset = (manualSpawnCascade % 5) * 18;
+  manualSpawnCascade++;
+
+  const spawnPt = {
+    x: Math.round(((targetScreenX - offset - panX) / scale) / 5) * 5,
+    y: Math.round(((targetScreenY + offset - panY) / scale) / 5) * 5
+  };
+
+  currentFnId = 'manual';
+  const newNode = createNode(type, defaultText, spawnPt.x, spawnPt.y);
+
+  selectedNodeIds.clear();
+  selectedNodeIds.add(newNode.id);
+  selectedEdgeId = null;
+  renderAll();
+  saveHistoryState();
+}
+
+function changeSelectedNodeType(newType) {
+  if (selectedNodeIds.size === 0) return;
+  nodes.forEach(n => {
+    if (selectedNodeIds.has(n.id)) {
+      n.type = newType;
+      const sz = calcAutoSize(n.type, n.text);
+      n.w = sz.w;
+      n.h = sz.h;
+    }
+  });
+  renderAll();
+  saveHistoryState();
+}
+
+function changeSelectedEdgeStyle(newStyle) {
+  const ed = edges.find(x => x.id === selectedEdgeId);
+  if (!ed) return;
+  ed.style = newStyle;
+  renderAll();
+  saveHistoryState();
+}
+
+function scaleSelectedElement(factor) {
+  if (selectedNodeIds.size > 0) {
+    nodes.forEach(n => {
+      if (selectedNodeIds.has(n.id)) {
+        n.w = Math.max(24, Math.round(n.w * factor));
+        n.h = Math.max(24, Math.round(n.h * factor));
+      }
+    });
+    renderAll();
+    saveHistoryState();
+  } else {
+    zoomCanvas(factor);
+  }
+}
+
+function duplicateSelectedNodes() {
+  if (selectedNodeIds.size === 0) return;
+  const idMap = new Map();
+  const newSelection = new Set();
+
+  nodes.forEach(orig => {
+    if (selectedNodeIds.has(orig.id)) {
+      const copy = createNode(orig.type, orig.text, orig.cx + 35, orig.y + 35);
+      copy.w = orig.w;
+      copy.h = orig.h;
+      copy.fnId = orig.fnId;
+      idMap.set(orig.id, copy.id);
+      newSelection.add(copy.id);
+    }
+  });
+
+  const origEdges = [...edges];
+  origEdges.forEach(e => {
+    if (e.from && e.to && idMap.has(e.from) && idMap.has(e.to)) {
+      createEdge(idMap.get(e.from), idMap.get(e.to), {
+        fromPort: e.fromPort,
+        toPort: e.toPort,
+        leftLabel: e.leftLabel,
+        rightLabel: e.rightLabel,
+        style: e.style,
+        bendOffset: e.bendOffset
+      });
+    }
+  });
+
+  selectedNodeIds = newSelection;
+  selectedEdgeId = null;
+  renderAll();
+  saveHistoryState();
+}
+
+function shiftSelectedEdgeBend(delta) {
+  const ed = edges.find(e => e.id === selectedEdgeId);
+  if (!ed) return;
+  if (ed.style === 'straight') ed.style = 'ortho';
+  ed.bendOffset = (ed.bendOffset || 0) + delta;
+  renderAll();
+  saveHistoryState();
+}
+
+function startDragEdgeSegment(edgeId, orient, e) {
+  if (e.button !== 0) return;
+  e.stopPropagation();
+  closeInlineEditor();
+  const ed = edges.find(x => x.id === edgeId);
+  if (!ed) return;
+
+  selectedEdgeId = edgeId;
+  selectedNodeIds.clear();
+  renderAll();
+
+  const pt = clientToCanvas(e.clientX, e.clientY);
+  draggingEdgeSegment = {
+    edge: ed,
+    orient,
+    startMouseX: pt.x,
+    startMouseY: pt.y,
+    startBendOffset: ed.bendOffset || 0,
+    moved: false
+  };
+}
+
+function addCommentToSelectedEdge(customText) {
+  const ed = edges.find(e => e.id === selectedEdgeId);
+  if (!ed) return;
+  const mid = getEdgeMidpoint(ed);
+  const text = customText || ed.rightLabel || '#include <iostream>\n#include <clocale>\nusing namespace std;';
+  ed.rightLabel = '';
+
+  const cSize = calcAutoSize('comment', text);
+  const commentNode = createNode('comment', text, mid.x + 58 + cSize.w / 2, mid.y - cSize.h / 2);
+  createEdge(null, commentNode.id, {
+    fromEdge: ed.id,
+    fromPort: 'edge',
+    toPort: 'left',
+    style: 'dashed'
+  });
+
+  selectedNodeIds.clear();
+  selectedNodeIds.add(commentNode.id);
+  selectedEdgeId = null;
+  renderAll();
+  saveHistoryState();
+}
+
+function startDragNode(nodeId, e) {
+  if (e.button !== 0) return;
+  e.stopPropagation();
+  closeInlineEditor();
+  closeStampModal();
+
+  if (e.shiftKey) {
+    if (selectedNodeIds.has(nodeId)) {
+      selectedNodeIds.delete(nodeId);
+    } else {
+      selectedNodeIds.add(nodeId);
+    }
+    selectedEdgeId = null;
+    renderAll();
+    return;
+  }
+
+  if (!selectedNodeIds.has(nodeId)) {
+    selectedNodeIds.clear();
+    selectedNodeIds.add(nodeId);
+  }
+  selectedEdgeId = null;
+  renderAll();
+
+  const primaryNode = nodes.find(n => n.id === nodeId);
+  if (!primaryNode) return;
+
+  const pt = clientToCanvas(e.clientX, e.clientY);
+  const initialPositions = new Map();
+  nodes.forEach(n => {
+    if (selectedNodeIds.has(n.id)) {
+      initialPositions.set(n.id, { cx: n.cx, y: n.y });
+    }
+  });
+
+  draggingNodesState = {
+    primaryNode,
+    startPt: pt,
+    initialPositions,
+    moved: false
+  };
+}
+
+function computeLaserAlignmentAndSnap(primaryNode, candidateCx, candidateY, excludedIds) {
+  const SNAP_TOL = 7;
+  let snappedCx = candidateCx;
+  let snappedY = candidateY;
+  const guides = [];
+
+  const pLeft = candidateCx - primaryNode.w / 2;
+  const pRight = candidateCx + primaryNode.w / 2;
+  const pMidY = candidateY + primaryNode.h / 2;
+  const pTop = candidateY;
+  const pBot = candidateY + primaryNode.h;
+
+  for (let other of nodes) {
+    if (excludedIds.has(other.id)) continue;
+    const oLeft = other.cx - other.w / 2;
+    const oRight = other.cx + other.w / 2;
+    const oMidY = other.y + other.h / 2;
+    const oTop = other.y;
+    const oBot = other.y + other.h;
+
+    if (Math.abs(candidateCx - other.cx) < SNAP_TOL) {
+      snappedCx = other.cx;
+      guides.push({
+        x1: other.cx,
+        y1: Math.min(candidateY, other.y) - 18,
+        x2: other.cx,
+        y2: Math.max(candidateY + primaryNode.h, other.y + other.h) + 18
+      });
+    } else if (Math.abs(pLeft - oLeft) < SNAP_TOL) {
+      snappedCx = oLeft + primaryNode.w / 2;
+      guides.push({
+        x1: oLeft,
+        y1: Math.min(candidateY, other.y) - 14,
+        x2: oLeft,
+        y2: Math.max(candidateY + primaryNode.h, other.y + other.h) + 14
+      });
+    } else if (Math.abs(pRight - oRight) < SNAP_TOL) {
+      snappedCx = oRight - primaryNode.w / 2;
+      guides.push({
+        x1: oRight,
+        y1: Math.min(candidateY, other.y) - 14,
+        x2: oRight,
+        y2: Math.max(candidateY + primaryNode.h, other.y + other.h) + 14
+      });
+    }
+
+    if (Math.abs(pMidY - oMidY) < SNAP_TOL) {
+      snappedY = oMidY - primaryNode.h / 2;
+      guides.push({
+        x1: Math.min(snappedCx - primaryNode.w / 2, oLeft) - 18,
+        y1: oMidY,
+        x2: Math.max(snappedCx + primaryNode.w / 2, oRight) + 18,
+        y2: oMidY
+      });
+    } else if (Math.abs(pTop - oTop) < SNAP_TOL) {
+      snappedY = oTop;
+      guides.push({
+        x1: Math.min(snappedCx - primaryNode.w / 2, oLeft) - 14,
+        y1: oTop,
+        x2: Math.max(snappedCx + primaryNode.w / 2, oRight) + 14,
+        y2: oTop
+      });
+    } else if (Math.abs(pBot - oBot) < SNAP_TOL) {
+      snappedY = oBot - primaryNode.h;
+      guides.push({
+        x1: Math.min(snappedCx - primaryNode.w / 2, oLeft) - 14,
+        y1: oBot,
+        x2: Math.max(snappedCx + primaryNode.w / 2, oRight) + 14,
+        y2: oBot
+      });
+    }
+  }
+
+  return { snappedCx, snappedY, guides };
+}
+
+function startResizeNode(nodeId, e) {
+  if (e.button !== 0) return;
+  e.stopPropagation();
+  const node = nodes.find(n => n.id === nodeId);
+  if (!node) return;
+  selectedNodeIds.clear();
+  selectedNodeIds.add(nodeId);
+  const pt = clientToCanvas(e.clientX, e.clientY);
+  resizingNode = node;
+  resizeStartW = node.w;
+  resizeStartH = node.h;
+  resizeStartX = pt.x;
+  resizeStartY = pt.y;
+}
+
+function startConnect(nodeId, port, e) {
+  if (e.button !== 0) return;
+  e.stopPropagation();
+  const node = nodes.find(n => n.id === nodeId);
+  if (!node) return;
+  const p = getPortCoords(node, port);
+  connectingFrom = { nodeId, edgeId: null, port, x: p.x, y: p.y };
+  document.body.classList.add('connecting-mode');
+
+  const tempLine = document.getElementById('tempConnectLine');
+  tempLine.setAttribute('points', `${p.x},${p.y} ${p.x},${p.y}`);
+  tempLine.style.display = 'block';
+}
+
+function startConnectFromEdge(edgeId, e) {
+  if (e.button !== 0) return;
+  e.stopPropagation();
+  const ed = edges.find(x => x.id === edgeId);
+  if (!ed) return;
+  const mid = getEdgeMidpoint(ed);
+  connectingFrom = { nodeId: null, edgeId, port: 'edge', x: mid.x, y: mid.y };
+  document.body.classList.add('connecting-mode');
+
+  const tempLine = document.getElementById('tempConnectLine');
+  tempLine.setAttribute('points', `${mid.x},${mid.y} ${mid.x},${mid.y}`);
+  tempLine.style.display = 'block';
+}
+
+function finishConnect(targetNodeId, targetPort, e) {
+  e.stopPropagation();
+  if (connectingFrom) {
+    const targetNode = nodes.find(n => n.id === targetNodeId);
+    const sourceNode = connectingFrom.nodeId ? nodes.find(n => n.id === connectingFrom.nodeId) : null;
+    const isComment = (targetNode && targetNode.type === 'comment') || (sourceNode && sourceNode.type === 'comment');
+
+    if (connectingFrom.nodeId && connectingFrom.nodeId !== targetNodeId) {
+      const newEdge = createEdge(connectingFrom.nodeId, targetNodeId, {
+        fromPort: connectingFrom.port,
+        toPort: targetPort,
+        style: isComment ? 'dashed' : 'ortho'
+      });
+      selectedEdgeId = newEdge.id;
+      selectedNodeIds.clear();
+      saveHistoryState();
+    } else if (connectingFrom.edgeId) {
+      const newEdge = createEdge(null, targetNodeId, {
+        fromEdge: connectingFrom.edgeId,
+        fromPort: 'edge',
+        toPort: targetPort,
+        style: isComment ? 'dashed' : 'ortho'
+      });
+      selectedEdgeId = newEdge.id;
+      selectedNodeIds.clear();
+      saveHistoryState();
+    }
+  }
+  stopConnectingMode();
+  renderAll();
+}
+
+function finishConnectToEdge(targetEdgeId, e) {
+  e.stopPropagation();
+  if (connectingFrom) {
+    const sourceNode = connectingFrom.nodeId ? nodes.find(n => n.id === connectingFrom.nodeId) : null;
+    const isComment = sourceNode && sourceNode.type === 'comment';
+
+    if (connectingFrom.nodeId) {
+      if (isComment) {
+        const newEdge = createEdge(null, sourceNode.id, {
+          fromEdge: targetEdgeId,
+          fromPort: 'edge',
+          toPort: 'left',
+          style: 'dashed'
+        });
+        selectedEdgeId = newEdge.id;
+      } else {
+        const newEdge = createEdge(connectingFrom.nodeId, null, {
+          fromPort: connectingFrom.port,
+          toEdge: targetEdgeId,
+          toPort: 'edge',
+          style: 'ortho'
+        });
+        selectedEdgeId = newEdge.id;
+      }
+      selectedNodeIds.clear();
+      saveHistoryState();
+    } else if (connectingFrom.edgeId && connectingFrom.edgeId !== targetEdgeId) {
+      const newEdge = createEdge(null, null, {
+        fromEdge: connectingFrom.edgeId,
+        fromPort: 'edge',
+        toEdge: targetEdgeId,
+        toPort: 'edge',
+        style: 'ortho'
+      });
+      selectedEdgeId = newEdge.id;
+      selectedNodeIds.clear();
+      saveHistoryState();
+    }
+  }
+  stopConnectingMode();
+  renderAll();
+}
+
+function stopConnectingMode() {
+  connectingFrom = null;
+  document.body.classList.remove('connecting-mode');
+  document.getElementById('tempConnectLine').style.display = 'none';
+}
+
+function selectEdge(edgeId, e) {
+  e.stopPropagation();
+  closeInlineEditor();
+  selectedEdgeId = edgeId;
+  selectedNodeIds.clear();
+  renderAll();
+}
+
+function deleteSelected() {
+  closeInlineEditor();
+  if (selectedNodeIds.size > 0) {
+    nodes = nodes.filter(n => !selectedNodeIds.has(n.id));
+    edges = edges.filter(e => !selectedNodeIds.has(e.from) && !selectedNodeIds.has(e.to));
+    selectedNodeIds.clear();
+  } else if (selectedEdgeId) {
+    edges = edges.filter(e => e.id !== selectedEdgeId && e.fromEdge !== selectedEdgeId && e.toEdge !== selectedEdgeId);
+    selectedEdgeId = null;
+  }
+  renderAll();
+  saveHistoryState();
+}
+
+function autoAlignCenter() {
+  if (nodes.length === 0) return;
+  const startTerminator = nodes.find(n => n.type === 'terminator');
+  const mainAxisX = startTerminator ? startTerminator.cx : 360;
+  nodes.forEach(n => {
+    if (n.type !== 'comment' && n.type !== 'brace' && Math.abs(n.cx - mainAxisX) < 110) {
+      n.cx = mainAxisX;
+    }
+  });
+  renderAll();
+  saveHistoryState();
+}
+
+// --- 9. НАВИГАЦИЯ, МУЛЬТИВЫДЕЛЕНИЕ РАМКОЙ (SHIFT + ЛКМ) И ГОРЯЧИЕ КЛАВИШИ ---
+const canvasWrap = document.getElementById('canvasWrap');
+
+function clientToCanvas(clientX, clientY) {
+  const rect = canvasWrap.getBoundingClientRect();
+  return {
+    x: (clientX - rect.left - panX) / scale,
+    y: (clientY - rect.top - panY) / scale
+  };
+}
+
+canvasWrap.addEventListener('mousedown', e => {
+  if (e.target.id === 'svgCanvas' || e.target.id === 'canvasWrap') {
+    closeInlineEditor();
+    closeStampModal();
+
+    if (e.shiftKey && e.button === 0) {
+      const pt = clientToCanvas(e.clientX, e.clientY);
+      marqueeState = { startX: pt.x, startY: pt.y, curX: pt.x, curY: pt.y };
+      const mRect = document.getElementById('marqueeRect');
+      mRect.setAttribute('x', pt.x);
+      mRect.setAttribute('y', pt.y);
+      mRect.setAttribute('width', 0);
+      mRect.setAttribute('height', 0);
+      mRect.style.display = 'block';
+      return;
+    }
+
+    selectedNodeIds.clear();
+    selectedEdgeId = null;
+    renderAll();
+
+    isPanning = true;
+    panStartX = e.clientX - panX;
+    panStartY = e.clientY - panY;
+  }
+});
+
+window.addEventListener('mousemove', e => {
+  if (marqueeState) {
+    const pt = clientToCanvas(e.clientX, e.clientY);
+    marqueeState.curX = pt.x;
+    marqueeState.curY = pt.y;
+
+    const rx = Math.min(marqueeState.startX, marqueeState.curX);
+    const ry = Math.min(marqueeState.startY, marqueeState.curY);
+    const rw = Math.abs(marqueeState.curX - marqueeState.startX);
+    const rh = Math.abs(marqueeState.curY - marqueeState.startY);
+
+    const mRect = document.getElementById('marqueeRect');
+    mRect.setAttribute('x', rx);
+    mRect.setAttribute('y', ry);
+    mRect.setAttribute('width', rw);
+    mRect.setAttribute('height', rh);
+
+    selectedNodeIds.clear();
+    nodes.forEach(n => {
+      const nLeft = n.cx - n.w / 2;
+      const nRight = n.cx + n.w / 2;
+      const nTop = n.y;
+      const nBot = n.y + n.h;
+      if (nRight >= rx && nLeft <= rx + rw && nBot >= ry && nTop <= ry + rh) {
+        selectedNodeIds.add(n.id);
+      }
+    });
+    renderAll();
+    return;
+  }
+
+  if (draggingEdgeSegment) {
+    const pt = clientToCanvas(e.clientX, e.clientY);
+    const delta = draggingEdgeSegment.orient === 'v'
+      ? (pt.x - draggingEdgeSegment.startMouseX)
+      : (pt.y - draggingEdgeSegment.startMouseY);
+    const snappedDelta = Math.round(delta / 5) * 5;
+    draggingEdgeSegment.edge.bendOffset = draggingEdgeSegment.startBendOffset + snappedDelta;
+    draggingEdgeSegment.moved = true;
+    renderAll();
+    return;
+  }
+
+  if (resizingNode) {
+    const pt = clientToCanvas(e.clientX, e.clientY);
+    const dx = (pt.x - resizeStartX) * 2;
+    const dy = pt.y - resizeStartY;
+    resizingNode.w = Math.max(28, Math.round(resizeStartW + dx));
+    resizingNode.h = Math.max(28, Math.round(resizeStartH + dy));
+    renderAll();
+    return;
+  }
+
+  if (draggingNodesState) {
+    const pt = clientToCanvas(e.clientX, e.clientY);
+    const rawDx = pt.x - draggingNodesState.startPt.x;
+    const rawDy = pt.y - draggingNodesState.startPt.y;
+
+    const pNode = draggingNodesState.primaryNode;
+    const initPrimary = draggingNodesState.initialPositions.get(pNode.id);
+    if (!initPrimary) return;
+
+    let candCx = Math.round((initPrimary.cx + rawDx) / 5) * 5;
+    let candY = Math.round((initPrimary.y + rawDy) / 5) * 5;
+
+    const snapRes = computeLaserAlignmentAndSnap(pNode, candCx, candY, selectedNodeIds);
+    activeLaserGuides = snapRes.guides;
+
+    const finalDx = snapRes.snappedCx - initPrimary.cx;
+    const finalDy = snapRes.snappedY - initPrimary.y;
+
+    if (finalDx !== 0 || finalDy !== 0) draggingNodesState.moved = true;
+
+    draggingNodesState.initialPositions.forEach((initPos, id) => {
+      const nd = nodes.find(x => x.id === id);
+      if (nd) {
+        nd.cx = initPos.cx + finalDx;
+        nd.y = initPos.y + finalDy;
+      }
+    });
+
+    renderAll();
+    return;
+  }
+
+  if (connectingFrom) {
+    const pt = clientToCanvas(e.clientX, e.clientY);
+    const previewPts = computeOrthogonalPoints(
+      { x: connectingFrom.x, y: connectingFrom.y },
+      connectingFrom.port,
+      pt,
+      'top',
+      'ortho'
+    );
+    const tempLine = document.getElementById('tempConnectLine');
+    tempLine.setAttribute('points', previewPts.map(p => `${p.x},${p.y}`).join(' '));
+    return;
+  }
+
+  if (isPanning) {
+    panX = e.clientX - panStartX;
+    panY = e.clientY - panStartY;
+    updateViewportTransform();
+    updateFloatingToolbarPosition();
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  if (marqueeState) {
+    marqueeState = null;
+    document.getElementById('marqueeRect').style.display = 'none';
+    renderAll();
+  }
+  if ((draggingNodesState && draggingNodesState.moved) || resizingNode || (draggingEdgeSegment && draggingEdgeSegment.moved)) {
+    saveHistoryState();
+  }
+  if (activeLaserGuides.length > 0) {
+    activeLaserGuides = [];
+    renderAll();
+  }
+  draggingNodesState = null;
+  draggingEdgeSegment = null;
+  resizingNode = null;
+  isPanning = false;
+  if (connectingFrom) {
+    stopConnectingMode();
+  }
+});
+
+canvasWrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoomCanvas(e.deltaY < 0 ? 1.1 : 0.9);
+}, { passive: false });
+
+window.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+    e.preventDefault();
+    toggleLeftPanel();
+    return;
+  }
+
+  const tag = document.activeElement ? document.activeElement.tagName : '';
+  if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') return;
+
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+    e.preventDefault();
+    undoAction();
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+    e.preventDefault();
+    redoAction();
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+    e.preventDefault();
+    selectedNodeIds.clear();
+    nodes.forEach(n => selectedNodeIds.add(n.id));
+    renderAll();
+    return;
+  }
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    deleteSelected();
+  }
+});
+
+function updateViewportTransform() {
+  document.getElementById('viewportGroup').setAttribute('transform', `translate(${panX}, ${panY}) scale(${scale})`);
+}
+
+function zoomCanvas(factor) {
+  scale = Math.min(2.5, Math.max(0.20, scale * factor));
+  updateViewportTransform();
+  updateFloatingToolbarPosition();
+}
+
+function centerDiagram() {
+  if (nodes.length === 0) {
+    panX = 115;
+    panY = 18;
+    scale = 0.72;
+    updateViewportTransform();
+    updateFloatingToolbarPosition();
+    return;
+  }
+
+  const bounds = getSubtreeBounds(nodes, edges);
+  if (!bounds) return;
+
+  const wrapW = canvasWrap.clientWidth || 800;
+  const wrapH = canvasWrap.clientHeight || 600;
+  const pad = 65;
+
+  const fitScaleX = (wrapW - pad * 2) / Math.max(200, bounds.width);
+  const fitScaleY = (wrapH - pad * 2) / Math.max(200, bounds.height);
+  scale = Math.min(0.88, Math.max(0.25, Math.min(fitScaleX, fitScaleY)));
+
+  const diagramMidX = (bounds.minX + bounds.maxX) / 2;
+  panX = Math.round(wrapW / 2 - diagramMidX * scale);
+  panY = Math.round(28 - bounds.minY * scale);
+
+  updateViewportTransform();
+  updateFloatingToolbarPosition();
+}
+
+function toggleTheme() {
+  document.body.classList.toggle('light-theme');
+  const isLight = document.body.classList.contains('light-theme');
+  document.getElementById('themeBtn').textContent = isLight ? 'Тёмная тема' : 'Белая тема';
+}
+
+// --- 10. ЭКСПОРТ В БУФЕР ОБМЕНА WORD, PNG, SVG И .DRAWIO ---
+function buildExportSVG() {
+  if (nodes.length === 0) return null;
+  const prevSelNodes = new Set(selectedNodeIds);
+  const prevSelE = selectedEdgeId;
+  selectedNodeIds.clear();
+  selectedEdgeId = null;
+  activeLaserGuides = [];
+  renderAll();
+
+  const vp = document.getElementById('viewportGroup');
+  const bbox = vp.getBBox();
+  const pad = showGostFrame ? 16 : 36;
+  const vx = Math.floor(bbox.x - pad);
+  const vy = Math.floor(bbox.y - pad);
+  const vw = Math.ceil(bbox.width + pad * 2);
+  const vh = Math.ceil(bbox.height + pad * 2);
+
+  const isLight = document.body.classList.contains('light-theme');
+  const bg = isLight ? '#ffffff' : '#111111';
+  const stroke = isLight ? '#000000' : '#ffffff';
+
+  const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vx} ${vy} ${vw} ${vh}" width="${vw}" height="${vh}">
+    <style>
+      .flow-shape { fill: ${bg}; stroke: ${stroke}; stroke-width: 1.8px; }
+      .flow-comment-hit, .flow-brace-box { fill: transparent; stroke: none; }
+      .flow-comment-bracket { fill: none; stroke: ${stroke}; stroke-width: 1.8px; }
+      .flow-text { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; fill: ${stroke}; text-anchor: middle; }
+      .flow-text-left { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; fill: ${stroke}; text-anchor: start; }
+      .flow-gost-num { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; font-weight: 600; fill: ${stroke}; text-anchor: start; }
+      .flow-brace-svg-text { font-family: 'Segoe UI', Arial, sans-serif; font-weight: 300; fill: ${stroke}; text-anchor: middle; dominant-baseline: central; }
+      .flow-edge-line { fill: none; stroke: ${stroke}; stroke-width: 1.8px; }
+      .flow-edge-hit, .port-dot, .edge-port-dot, .resize-handle, .edge-elbow-pill, .edge-seg-drag-v, .edge-seg-drag-h { display: none; }
+      .edge-label-text { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12.5px; fill: ${stroke}; }
+      .gost-frame-outer { fill: none; stroke: ${stroke}; stroke-width: 1.2px; }
+      .gost-frame-inner { fill: none; stroke: ${stroke}; stroke-width: 2.2px; }
+      .gost-stamp-box { fill: ${bg}; stroke: ${stroke}; stroke-width: 2px; }
+      .gost-stamp-line { stroke: ${stroke}; stroke-width: 1.6px; }
+      .gost-stamp-thin { stroke: ${stroke}; stroke-width: 1px; }
+      .gost-stamp-text { font-family: 'Segoe UI', Arial, sans-serif; fill: ${stroke}; }
+    </style>
+    <defs>
+      <marker id="arrowHead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="${stroke}"/>
+      </marker>
+    </defs>
+    <rect x="${vx}" y="${vy}" width="${vw}" height="${vh}" fill="${bg}"/>
+    ${document.getElementById('gostFrameLayer').innerHTML}
+    ${document.getElementById('edgesLayer').innerHTML}
+    ${document.getElementById('nodesLayer').innerHTML}
+  </svg>`;
+
+  selectedNodeIds = prevSelNodes;
+  selectedEdgeId = prevSelE;
+  renderAll();
+  return svgContent;
+}
+
+function copyImageToClipboard() {
+  const svg = buildExportSVG();
+  if (!svg) return;
+  const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width * 2;
+    canvas.height = img.height * 2;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(2, 2);
+    ctx.drawImage(img, 0, 0);
+    URL.revokeObjectURL(url);
+
+    canvas.toBlob(async pngBlob => {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+        const btn = document.getElementById('copyClipBtn');
+        const oldText = btn.textContent;
+        btn.textContent = '✅ Скопировано! (Ctrl+V)';
+        setTimeout(() => { btn.textContent = oldText; }, 2200);
+      } catch (err) {
+        downloadPNG();
+      }
+    }, 'image/png');
+  };
+  img.src = url;
+}
+
+function downloadSVG() {
+  const svg = buildExportSVG();
+  if (!svg) return;
+  const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'cpp-gost-flowchart.svg';
+  a.click();
+}
+
+function downloadPNG() {
+  const svg = buildExportSVG();
+  if (!svg) return;
+  const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width * 2;
+    canvas.height = img.height * 2;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(2, 2);
+    ctx.drawImage(img, 0, 0);
+    URL.revokeObjectURL(url);
+
+    const a = document.createElement('a');
+    a.download = 'cpp-gost-flowchart.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  };
+  img.src = url;
+}
+
+function exportDrawio() {
+  let cells = '';
+  nodes.forEach(n => {
+    const x = Math.round(n.cx - n.w / 2);
+    const y = Math.round(n.y);
+    let style = 'whiteSpace=wrap;html=1;strokeWidth=2;';
+    if (n.type === 'terminator') style = 'rounded=1;arcSize=50;whiteSpace=wrap;html=1;strokeWidth=2;';
+    else if (n.type === 'predefined') style = 'shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;strokeWidth=2;';
+    else if (n.type === 'brace' || n.type === 'omission') style = 'text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=30;';
+    else if (n.type === 'io') style = 'shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;strokeWidth=2;';
+    else if (n.type === 'decision') style = 'rhombus;whiteSpace=wrap;html=1;strokeWidth=2;';
+    else if (n.type === 'prep') style = 'shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;strokeWidth=2;';
+    else if (n.type === 'manual_op') style = 'shape=trapezoid;perimeter=trapezoidPerimeter;whiteSpace=wrap;html=1;fixedSize=1;direction=west;strokeWidth=2;';
+    else if (n.type === 'document') style = 'shape=document;whiteSpace=wrap;html=1;boundedLbl=1;strokeWidth=2;';
+    else if (n.type === 'manual_input') style = 'shape=manualInput;whiteSpace=wrap;html=1;strokeWidth=2;';
+    else if (n.type === 'card') style = 'shape=card;whiteSpace=wrap;html=1;strokeWidth=2;';
+    else if (n.type === 'paper_tape') style = 'shape=tape;whiteSpace=wrap;html=1;strokeWidth=2;';
+    else if (n.type === 'display') style = 'shape=display;whiteSpace=wrap;html=1;strokeWidth=2;';
+    else if (n.type === 'stored_data') style = 'shape=dataStorage;whiteSpace=wrap;html=1;fixedSize=1;strokeWidth=2;';
+    else if (n.type === 'ram') style = 'shape=internalStorage;whiteSpace=wrap;html=1;backgroundOutline=1;strokeWidth=2;';
+    else if (n.type === 'direct_storage') style = 'shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;direction=south;strokeWidth=2;';
+    else if (n.type === 'comment') style = 'shape=partialRectangle;whiteSpace=wrap;html=1;left=1;right=0;top=1;bottom=1;fillColor=none;align=left;spacingLeft=10;strokeWidth=2;';
+
+    const val = escapeXml(n.text).replace(/\n/g, '&#xa;');
+    cells += `<mxCell id="${n.id}" value="${val}" style="${style}" vertex="1" parent="1">
+      <mxGeometry x="${x}" y="${y}" width="${Math.round(n.w)}" height="${Math.round(n.h)}" as="geometry"/>
+    </mxCell>\n`;
+  });
+
+  edges.forEach(e => {
+    const lbl = escapeXml([e.leftLabel, e.rightLabel].filter(Boolean).join(' ')).replace(/\n/g, '&#xa;');
+    const isDashed = e.style === 'dashed';
+    const edgeStyle = isDashed
+      ? 'edgeStyle=orthogonalEdgeStyle;rounded=0;dashed=1;endArrow=none;html=1;strokeWidth=2;'
+      : 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;';
+    const src = e.fromEdge ? e.fromEdge : e.from;
+    const tgt = e.toEdge ? e.toEdge : e.to;
+    cells += `<mxCell id="${e.id}" value="${lbl}" style="${edgeStyle}" edge="1" parent="1" source="${src || ''}" target="${tgt || ''}">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>\n`;
+  });
+
+  const xml = `<mxfile host="app.diagrams.net"><diagram name="ГОСТ 19.701-90"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>${cells}</root></mxGraphModel></diagram></mxfile>`;
+  const blob = new Blob([xml], { type: 'application/xml' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'cpp-gost-scheme.drawio';
+  a.click();
+}
+
+function loadLoopIfExample() {
+  document.getElementById('codeEditor').value = LOOP_IF_CODE;
+  generateFromCpp();
+  centerDiagram();
+}
+
+function loadTriangleIfExample() {
+  document.getElementById('codeEditor').value = TRIANGLE_IF_CODE;
+  generateFromCpp();
+  centerDiagram();
+}
+
+function loadExampleFromScreenshot() {
+  document.getElementById('codeEditor').value = EXAMPLE_CODE;
+  generateFromCpp();
+  centerDiagram();
+}
+
+function loadComplexCppExample() {
+  document.getElementById('codeEditor').value = COMPLEX_CPP_CODE;
+  generateFromCpp();
+  centerDiagram();
+}
+
+(function initApp() {
+  const saved = localStorage.getItem('cpp_gost_studio_v10');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (parsed && parsed.code) {
+        document.getElementById('codeEditor').value = parsed.code;
+        generateFromCpp();
+        centerDiagram();
+        return;
+      }
+    } catch (e) {}
+  }
+  loadTriangleIfExample();
+})();
+</script>
+</body>
+</html>

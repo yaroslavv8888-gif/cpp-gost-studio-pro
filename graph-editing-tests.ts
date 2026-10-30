@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import { remapCopiedControl } from './src/engine/graphEditing';
+const control = {kind:'if' as const,joinId:'j',yesId:'y',noId:'n'};
+const ids = new Map([['j','j2'],['y','y2'],['n','n2']]);
+assert.equal(remapCopiedControl(control,ids)?.yesId,'y2');
+assert.equal(control.yesId,'y');
+assert.equal(remapCopiedControl(control,new Map([['y','y2']])),undefined);
+const post = {kind:'dowhile' as const,joinId:'j',bodyId:'y',conditionId:'n',keyword:'n'};
+assert.equal(remapCopiedControl(post,ids)?.keyword,'n2');
+console.log('Copied control references remapped; incomplete regions discard metadata.');

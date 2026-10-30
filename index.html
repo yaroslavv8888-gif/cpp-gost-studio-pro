@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>C++ ГОСТ 19.701-90 Studio Pro — Инженерный кульман</title>
+    <meta name="description" content="Инженерная САПР-студия построения и верификации блок-схем алгоритмов C++ по ГОСТ 19.701-90 с двусторонней синхронизацией кода, нормоконтролем и чертежным кульманом." />
+    <meta property="og:title" content="C++ ГОСТ 19.701-90 Studio Pro — Инженерный кульман" />
+    <meta property="og:description" content="Инженерная САПР-студия построения и верификации блок-схем алгоритмов C++ по ГОСТ 19.701-90 с двусторонней синхронизацией кода, нормоконтролем и чертежным кульманом." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Golos+Text:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if (window.location.protocol === 'file:') {
+        var cssLink = document.createElement('link');
+        cssLink.rel = 'stylesheet';
+        cssLink.href = './public/standalone-pc.css';
+        document.head.appendChild(cssLink);
+        var jsScript = document.createElement('script');
+        jsScript.src = './public/standalone-pc.js';
+        document.body.appendChild(jsScript);
+      }
+    </script>
+  </body>
+</html>
+
