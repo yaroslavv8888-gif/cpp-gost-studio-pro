@@ -1,3 +1,5 @@
+import { normalizeFlowJunctions, alignedEdges } from './engine/graphEditing';
+import { getLineAnchor, getLineAnchorPoint } from './engine/orthoRouter';
 import { normalizeSubprogramShapes } from './engine/userSubprograms';
 import { Workflow, PanelLeftClose, PanelLeftOpen, Undo2, Redo2, Frame, Pencil, AlignCenter, Clipboard, Download, ZoomIn, ZoomOut, Scan, Check } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -172,6 +174,7 @@ export default function App() {
   const [connectingFrom, setConnectingFrom] = useState<{
     nodeId: string | null;
     edgeId: string | null;
+    anchor?: FlowEdge['fromAnchor'];
     port: PortSide;
     x: number;
     y: number;
@@ -246,6 +249,7 @@ export default function App() {
       updatedNextId = nextId,
       triggerReverseCpp = false
     ) => {
+      updatedNodes = normalizeFlowJunctions(updatedNodes, updatedEdges);
       if (triggerReverseCpp && options.autoSyncCpp && updatedNodes.length > 0) {
         const { code: synthCode, updatedNodes: linkedNodes } = synthesizeCppFromGraph(
           updatedNodes,
@@ -327,7 +331,7 @@ export default function App() {
 
     if (candidate && candidate.nodes && candidate.nodes.length > 0) {
       candidate.edges = numericBranchLabels(candidate.edges || []);
-      candidate.nodes = normalizeSubprogramShapes(candidate.nodes, candidate.edges);
+      candidate.nodes = normalizeFlowJunctions(normalizeSubprogramShapes(candidate.nodes, candidate.edges), candidate.edges);
       setCode(candidate.code || SWITCH_CASE_CODE);
       setNodes(candidate.nodes);
       setEdges(candidate.edges || []);
@@ -848,7 +852,7 @@ export default function App() {
         ? { ...n, cx: mainAxisX }
         : n
     );
-    commitCanvasChange(updated, edges, nextId, false);
+    commitCanvasChange(updated, alignedEdges(nodes, updated, edges), nextId, false);
   };
 
   // Inline Editor handlers
@@ -1140,10 +1144,13 @@ export default function App() {
     e.stopPropagation();
     const ed = edges.find((x) => x.id === edgeId);
     if (!ed) return;
-    const mid = getEdgeMidpoint(nodes, edges, ed);
+    const points = getEdgePoints(nodes, edges, ed) || [];
+    const anchor = getLineAnchor(points, clientToCanvas(e.clientX,e.clientY));
+    const mid = getLineAnchorPoint(points, anchor);
     setConnectingFrom({
       nodeId: null,
       edgeId,
+      anchor,
       port: 'edge',
       x: mid.x,
       y: mid.y,
@@ -1187,6 +1194,7 @@ export default function App() {
           id: newEdgeId,
           from: null,
           fromEdge: connectingFrom.edgeId,
+          fromAnchor: connectingFrom.anchor,
           to: targetNodeId,
           toEdge: null,
           fromPort: 'edge',
@@ -1234,6 +1242,7 @@ export default function App() {
               fromEdge: null,
               to: null,
               toEdge: targetEdgeId,
+              toAnchor: getLineAnchor(getEdgePoints(nodes, edges, edges.find(e=>e.id===targetEdgeId)!) || [], clientToCanvas(e.clientX,e.clientY)),
               fromPort: connectingFrom.port,
               toPort: 'edge',
               leftLabel: '',
@@ -1250,8 +1259,10 @@ export default function App() {
           id: newEdgeId,
           from: null,
           fromEdge: connectingFrom.edgeId,
+          fromAnchor: connectingFrom.anchor,
           to: null,
           toEdge: targetEdgeId,
+          toAnchor: getLineAnchor(getEdgePoints(nodes, edges, edges.find(e=>e.id===targetEdgeId)!) || [], clientToCanvas(e.clientX,e.clientY)),
           fromPort: 'edge',
           toPort: 'edge',
           leftLabel: '',
@@ -1466,6 +1477,7 @@ export default function App() {
                   from: null,
                   fromPort: 'edge' as PortSide,
                   fromEdge: snapPreview.edgeId,
+                  fromAnchor: getLineAnchor(getEdgePoints(nodes, edges, edges.find(e=>e.id===snapPreview.edgeId)!) || [], snapPreview.point),
                   waypoints: undefined,
                   bendOffset: 0,
                   bendOffsetY: 0,
@@ -1489,6 +1501,7 @@ export default function App() {
                   to: null,
                   toPort: 'edge' as PortSide,
                   toEdge: snapPreview.edgeId,
+                  toAnchor: getLineAnchor(getEdgePoints(nodes, edges, edges.find(e=>e.id===snapPreview.edgeId)!) || [], snapPreview.point),
                   waypoints: undefined,
                   bendOffset: 0,
                   bendOffsetY: 0,
@@ -1537,6 +1550,7 @@ export default function App() {
                 id: newEdgeId,
                 from: null,
                 fromEdge: connectingFrom.edgeId,
+                fromAnchor: connectingFrom.anchor,
                 to: snapPreview.nodeId,
                 toEdge: null,
                 fromPort: 'edge',
@@ -1558,6 +1572,7 @@ export default function App() {
                   id: newEdgeId,
                   from: null,
                   fromEdge: snapPreview.edgeId,
+                  fromAnchor: getLineAnchor(getEdgePoints(nodes, edges, edges.find(e=>e.id===snapPreview.edgeId)!) || [], snapPreview.point),
                   to: sourceNode.id,
                   toEdge: null,
                   fromPort: 'edge',
@@ -1572,8 +1587,10 @@ export default function App() {
                   id: newEdgeId,
                   from: connectingFrom.nodeId,
                   fromEdge: connectingFrom.edgeId,
+                  fromAnchor: connectingFrom.anchor,
                   to: null,
                   toEdge: snapPreview.edgeId,
+                  toAnchor: getLineAnchor(getEdgePoints(nodes, edges, edges.find(e=>e.id===snapPreview.edgeId)!) || [], snapPreview.point),
                   fromPort: connectingFrom.nodeId ? connectingFrom.port : 'edge',
                   toPort: 'edge',
                   leftLabel: '',
@@ -1875,6 +1892,7 @@ export default function App() {
         style =
           'shape=partialRectangle;whiteSpace=wrap;html=1;left=1;right=0;top=1;bottom=1;fillColor=none;align=left;spacingLeft=10;strokeWidth=2;';
 
+      if (n.type === 'connector' && !n.text.trim() && n.w <= 8 && n.h <= 8) style = 'shape=ellipse;strokeColor=none;fillColor=none;';
       const val = escapeXml(n.text).replace(/\n/g, '&#xa;');
       cells += `<mxCell id="${n.id}" value="${val}" style="${style}" vertex="1" parent="1">
         <mxGeometry x="${x}" y="${y}" width="${Math.round(n.w)}" height="${Math.round(n.h)}" as="geometry"/>
@@ -1890,12 +1908,15 @@ export default function App() {
       const edgeStyle = isDashed
         ? 'edgeStyle=orthogonalEdgeStyle;rounded=0;dashed=1;endArrow=none;html=1;strokeWidth=2;'
         : 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;';
+      const points = getEdgePoints(nodes, edges, e) || [];
+      const route = points.slice(1,-1).map(p=>`<mxPoint x="${p.x}" y="${p.y}"/>`).join('');
+      const terminals = points.length ? `<mxPoint x="${points[0].x}" y="${points[0].y}" as="sourcePoint"/><mxPoint x="${points.at(-1)!.x}" y="${points.at(-1)!.y}" as="targetPoint"/>` : '';
       const src = e.fromEdge ? e.fromEdge : e.from;
       const tgt = e.toEdge ? e.toEdge : e.to;
       cells += `<mxCell id="${e.id}" value="${lbl}" style="${edgeStyle}" edge="1" parent="1" source="${
         src || ''
       }" target="${tgt || ''}">
-        <mxGeometry relative="1" as="geometry"/>
+        <mxGeometry relative="1" as="geometry">${terminals}<Array as="points">${route}</Array></mxGeometry>
       </mxCell>\n`;
     });
 
@@ -2826,7 +2847,7 @@ export default function App() {
                         d={pathD}
                         className="flow-edge-line"
                         strokeDasharray={e.style === 'dashed' ? '6,5' : undefined}
-                        markerEnd={e.style === 'dashed' || e.toEdge || nodes.some(n => n.id === e.to && n.type === 'connector' && !n.text.trim() && n.w <= 8) ? undefined : 'url(#arrowHead)'}
+                        markerEnd={e.style === 'dashed' ? undefined : 'url(#arrowHead)'}
                       />
 
                       {/* Draw.io-стиль: перетаскивание любого сегмента 1-к-1 за мышью и кнопка + для добавления изгиба */}
@@ -3041,6 +3062,7 @@ export default function App() {
               {/* СЛОЙ 3: Блоки ГОСТ 19.701-90 */}
               <g ref={nodesLayerRef} id="nodesLayer">
                 {nodes.map((n) => {
+                  if (n.type === 'connector' && !n.text.trim() && n.w <= 8 && n.h <= 8) return null;
                   const isSel = selectedNodeIds.has(n.id);
                   const isLineLinked =
                     activeEditorLine !== null &&

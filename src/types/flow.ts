@@ -66,6 +66,9 @@ export interface FlowNode {
 }
 
 export interface FlowEdge {
+  /** Position on a parent edge segment; retained when its blocks move. */
+  fromAnchor?: { segment: number; ratio: number };
+  toAnchor?: { segment: number; ratio: number };
   id: string;
   from: string | null;
   fromEdge: string | null;

@@ -188,6 +188,26 @@ export function simplifyOrthogonalPolyline(pts: Point[]): Point[] {
   return out;
 }
 
+export function getLineAnchor(points: Point[], point: Point): { segment: number; ratio: number } {
+  let best = { segment: 0, ratio: 0.5 }, distance = Infinity;
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i], b = points[i + 1];
+    const dx = b.x - a.x, dy = b.y - a.y, length = dx * dx + dy * dy;
+    if (!length) continue;
+    const ratio = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / length));
+    const d = Math.hypot(point.x - a.x - ratio * dx, point.y - a.y - ratio * dy);
+    if (d < distance) { distance = d; best = { segment: i, ratio }; }
+  }
+  return best;
+}
+
+export function getLineAnchorPoint(points: Point[], anchor?: FlowEdge['fromAnchor']): Point {
+  if (!anchor || points.length < 2) return getPolylineMidpoint(points);
+  const i = Math.max(0, Math.min(points.length - 2, anchor.segment));
+  const t = Math.max(0, Math.min(1, anchor.ratio));
+  return { x: points[i].x + (points[i+1].x - points[i].x) * t, y: points[i].y + (points[i+1].y - points[i].y) * t };
+}
+
 /**
  * Ensures that a user-defined list of interior waypoints forms a strictly 90-degree
  * orthogonal path between p1 (at fromPort) and p2 (at toPort), smoothly adapting the
@@ -1036,7 +1056,7 @@ function resolveEdgePoints(
     if (!parentEdge) return null;
     const parentPts = resolveEdgePoints(nodes, edges, parentEdge, new Set(visited), context);
     if (!parentPts) return null;
-    p1 = getPolylineMidpoint(parentPts);
+    p1 = getLineAnchorPoint(parentPts, edge.fromAnchor);
     fromPort = 'edge';
   } else {
     fromNode = nodes.find((n) => n.id === edge.from) || null;
@@ -1053,7 +1073,7 @@ function resolveEdgePoints(
     if (!targetEdge) return null;
     const targetPts = resolveEdgePoints(nodes, edges, targetEdge, new Set(visited), context);
     if (!targetPts) return null;
-    p2 = getPolylineMidpoint(targetPts);
+    p2 = getLineAnchorPoint(targetPts, edge.toAnchor);
     toPort = 'edge';
   } else {
     toNode = nodes.find((n) => n.id === edge.to) || null;
