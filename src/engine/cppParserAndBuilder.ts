@@ -1,6 +1,6 @@
 import { functionHeaderName, hasUserSubprogramCall } from './userSubprograms';
 import { CodeGenOptions, EdgeStyle, FlowEdge, FlowNode, GostNodeType, PortSide } from '../types/flow';
-import { calcAutoSize, getSubtreeBounds, shiftSubtree, getEdgePoints } from './orthoRouter';
+import { calcAutoSize, getSubtreeBounds, shiftSubtree, getEdgePoints, getLoopRoutingScopes, placeBraceDecorations } from './orthoRouter';
 
 interface SwitchCaseGroup {
   labels: string[];
@@ -14,7 +14,12 @@ interface SwitchCaseGroup {
   sourceLines: number[];
 }
 
+interface ScopeBraces { openLine: number; closeLine: number }
+
 interface AstItem {
+  bodyBraces?: ScopeBraces;
+  thenBraces?: ScopeBraces;
+  elseBraces?: ScopeBraces;
   kind: 'cin' | 'cout' | 'break' | 'continue' | 'return' | 'subprogram' | 'setlocale' | 'decl' | 'calc' | 'switch' | 'dowhile' | 'if' | 'loop';
   text?: string;
   expr?: string;
@@ -356,7 +361,7 @@ function parseSingleStatementOrBlock(
   startIdx: number,
   groupStmts: boolean,
   userFuncNames: Set<string>
-): { items: AstItem[]; nextIdx: number; hasBraces: boolean } {
+): { items: AstItem[]; nextIdx: number; hasBraces: boolean; braces?: ScopeBraces } {
   const n = code.length;
   let i = startIdx;
   while (i < n && /\s/.test(code[i])) i++;
@@ -367,7 +372,7 @@ function parseSingleStatementOrBlock(
   if (code[i] === '{') {
     const b = extractBalancedBlock(code, i, '{', '}');
     const items = parseStatements(fullDoc, b.content, baseOffset + b.startContentIdx, groupStmts, userFuncNames);
-    return { items, nextIdx: b.endIdx + 1, hasBraces: true };
+    return { items, nextIdx: b.endIdx + 1, hasBraces: true, braces: { openLine: getLineNumberAtOffset(fullDoc, baseOffset+i), closeLine: getLineNumberAtOffset(fullDoc, baseOffset+b.endIdx) } };
   }
 
   const rest = code.slice(i);
@@ -426,7 +431,7 @@ function parseSingleStatementOrBlock(
       if (semi !== -1) i = semi + 1;
     }
     return {
-      items: [{ kind: 'dowhile', cond: condStr, body: bodyParsed.items, sourceLines: condLines }],
+      items: [{ kind: 'dowhile', cond: condStr, body: bodyParsed.items, bodyBraces: bodyParsed.braces, sourceLines: condLines }],
       nextIdx: i,
       hasBraces: false,
     };
@@ -445,15 +450,17 @@ function parseSingleStatementOrBlock(
 
     while (i < n && /\s/.test(code[i])) i++;
     let elseB: AstItem[] = [];
+    let elseBraces: ScopeBraces | undefined;
     const elseM = code.slice(i).match(/^else\b/);
     if (elseM) {
       i += elseM[0].length;
       const elseParsed = parseSingleStatementOrBlock(fullDoc, code, baseOffset, i, groupStmts, userFuncNames);
       elseB = elseParsed.items;
+      elseBraces = elseParsed.braces;
       i = elseParsed.nextIdx;
     }
     return {
-      items: [{ kind: 'if', cond: cond.content.trim(), thenB: thenParsed.items, elseB, sourceLines: ifLines }],
+      items: [{ kind: 'if', cond: cond.content.trim(), thenB: thenParsed.items, thenBraces: thenParsed.braces, elseB, elseBraces, sourceLines: ifLines }],
       nextIdx: i,
       hasBraces: false,
     };
@@ -470,15 +477,17 @@ function parseSingleStatementOrBlock(
     while (i < n && /\s/.test(code[i])) i++;
 
     let body: AstItem[] = [];
+    let bodyBraces: ScopeBraces | undefined;
     if (code[i] === ';') {
       i++;
     } else {
       const bodyParsed = parseSingleStatementOrBlock(fullDoc, code, baseOffset, i, groupStmts, userFuncNames);
       body = bodyParsed.items;
+      bodyBraces = bodyParsed.braces;
       i = bodyParsed.nextIdx;
     }
     return {
-      items: [{ kind: 'loop', loopType, header: head.content.trim(), body, sourceLines: loopLines }],
+      items: [{ kind: 'loop', loopType, header: head.content.trim(), body, bodyBraces, sourceLines: loopLines }],
       nextIdx: i,
       hasBraces: false,
     };
@@ -565,12 +574,12 @@ export function buildFlowFromCpp(
   type Sequence = { first: FlowNode | null; last: FlowNode | null; bottom: number; normal: boolean };
   const GAP = 44;
   const build = (items: AstItem[], cx: number, y: number, previous: FlowNode | null,
-    scopes: Scope[], functionExit: FlowNode, functionBody = false): Sequence => {
+    scopes: Scope[], functionExit: FlowNode, functionBody = false, braces?: ScopeBraces): Sequence => {
     let first: FlowNode | null = null;
     let last = previous;
     let normal = true;
     const attach = (n: FlowNode) => { if (!first) first = n; if (last) edge(last, n); };
-    if (options.exampleStyle && items.length) node('brace', '{', cx - 42, y - 40, items[0].sourceLines);
+    if (options.exampleStyle && braces) node('brace', '{', cx - 42, y - 40, [braces.openLine]);
     for (const item of items) {
       if (!normal) break; // Never synthesize flow through code after an unconditional jump.
       if (item.kind === 'if') {
@@ -579,20 +588,22 @@ export function buildFlowFromCpp(
         const join = node('connector', '', cx, y, item.sourceLines);
         const top = y + d.h + GAP;
         const leftStart = nodes.length;
-        const yes = build(item.thenB || [], 0, top, null, scopes, functionExit);
+        const yes = build(item.thenB || [], 0, top, null, scopes, functionExit, false, item.thenBraces);
         const leftNodes = nodes.slice(leftStart);
         const lb = getSubtreeBounds(nodes, edges, leftNodes, []);
         const rightStart = nodes.length;
-        const no = build(item.elseB || [], 0, top, null, scopes, functionExit);
+        const no = build(item.elseB || [], 0, top, null, scopes, functionExit, false, item.elseBraces);
         const rightNodes = nodes.slice(rightStart);
         const rb = getSubtreeBounds(nodes, edges, rightNodes, []);
         // Position complete subtrees, including every nested sibling and loop body.
         shiftSubtree(leftNodes, Math.min(cx - d.w / 2 - 84, cx - 64 - (lb?.maxX || 0)));
         shiftSubtree(rightNodes, Math.max(cx + d.w / 2 + 84, cx + 64 - (rb?.minX || 0)));
-        join.y = Math.max(top, yes.bottom, no.bottom) + GAP;
-        edge(d, yes.first || join, { fromPort: 'left', toPort: yes.first ? 'top' : 'left', rightLabel: '1' });
+        join.y = Math.max(top, yes.bottom, no.bottom) + GAP + 22;
+        const upperJoin = yes.normal && no.normal ? node('connector', '', cx, join.y - 22, item.sourceLines) : join;
+        if (upperJoin !== join) edge(upperJoin, join);
+        edge(d, yes.first || upperJoin, { fromPort: 'left', toPort: yes.first ? 'top' : 'left', rightLabel: '1' });
         edge(d, no.first || join, { fromPort: 'right', toPort: no.first ? 'top' : 'right', rightLabel: '0', style: no.first ? 'ortho' : 'bypass_right' });
-        if (yes.first && yes.normal && yes.last) edge(yes.last, join, { toPort: 'left' });
+        if (yes.first && yes.normal && yes.last) edge(yes.last, upperJoin, { toPort: 'left' });
         if (no.first && no.normal && no.last) edge(no.last, join, { toPort: 'right' });
         d.control = { kind: 'if', joinId: join.id, yesId: yes.first?.id, noId: no.first?.id, expression: item.cond };
         normal = yes.normal || no.normal;
@@ -605,7 +616,7 @@ export function buildFlowFromCpp(
       } else if (item.kind === 'switch') {
         const header = node('process', `switch (${item.expr})`, cx, y, item.sourceLines);
         attach(header);
-        if(options.exampleStyle)node('brace','{',cx-42,y+header.h+4,item.sourceLines);
+        if(options.exampleStyle)node('brace','{',cx-42,y+header.h+4,[item.openBraceLine!]);
         const join = node('connector', '', cx, y, item.sourceLines);
         const groups = item.cases || [];
         const entries = groups.map(g => node('connector', '', cx, y, g.sourceLines));
@@ -625,12 +636,8 @@ export function buildFlowFromCpp(
           const lastDiamond=ownDiamonds.at(-1);
           const row=lastDiamond ? lastDiamond.y+lastDiamond.h/2 : y+36;
           const start=nodes.length;
-          const res=build(g.stmts,0,row,null,scope,functionExit);
+          const res=build(g.stmts,0,row,null,scope,functionExit,false,g.hasBraces ? {openLine:g.openBraceLine!,closeLine:g.closeBraceLine!}:undefined);
           const bodyNodes=nodes.slice(start);
-          if(!g.hasBraces){
-            const decorations=bodyNodes.filter(n=>n.type==='brace');
-            for(const n of [decorations[0],decorations.at(-1)])if(n&&nodes.includes(n))nodes.splice(nodes.indexOf(n),1);
-          }
           const linear=g.stmts.every(s=>!['if','switch','loop','dowhile'].includes(s.kind));
           const left=cx+Math.max(header.w/2,...ownDiamonds.map(d=>d.w/2),90)+90;
           let bottom:number;
@@ -671,7 +678,7 @@ export function buildFlowFromCpp(
         }
         edge(spine,join,{rightLabel:spine===header?'':'0',toPort:'top'});
         join.y=y+GAP;
-        if(options.exampleStyle)node('brace','}',cx-42,join.y-38,item.sourceLines);
+        if(options.exampleStyle)node('brace','}',cx-42,join.y-38,[item.closeBraceLine!]);
         header.control = { kind: 'switch', joinId: join.id, expression: item.expr, cases: caseMeta };
         last = join;
         y = join.y + join.h + GAP;
@@ -696,7 +703,7 @@ export function buildFlowFromCpp(
         const conditionJoin = entry || node('connector', '', cx, y, item.sourceLines);
         const bodyTop = y + head.h + GAP;
         const res = build(item.body || [], cx, bodyTop, null,
-          [...scopes, { breakTarget: exit, continueTarget: conditionJoin }], functionExit);
+          [...scopes, { breakTarget: exit, continueTarget: conditionJoin }], functionExit, false, item.bodyBraces);
         const bodyEntry = res.first || conditionJoin;
         edge(head, bodyEntry, { rightLabel: post ? '' : '1', toPort: bodyEntry === conditionJoin && !post ? 'left' : 'top', style: bodyEntry === conditionJoin && !post ? 'loop_left' : 'ortho' });
         y = Math.max(bodyTop, res.bottom) + GAP;
@@ -710,11 +717,15 @@ export function buildFlowFromCpp(
           edge(cond, exit, { fromPort: 'right', toPort: 'right', rightLabel: '0', style: 'bypass_right' });
           head.control = { kind: 'dowhile', joinId: exit.id, bodyId: res.first?.id, conditionId: cond.id, expression: item.cond, keyword: conditionJoin.id };
         } else {
-          if (res.normal && res.last) edge(res.last, conditionJoin, { toPort: 'left', style: 'loop_left' });
+          if (res.normal && res.last) edge(res.last, conditionJoin, { toPort: 'left', style: 'loop_left', bendOffsetY: Math.max(0, res.bottom - res.last.y - res.last.h) });
           exit.y = y + GAP;
           edge(head, exit, { fromPort: 'right', toPort: 'right', rightLabel: '0', style: 'bypass_right' });
           head.control = { kind: 'loop', joinId: exit.id, bodyId: res.first?.id, keyword: item.loopType, expression: item.header };
         }
+        const loopScope = getLoopRoutingScopes(nodes, edges).find(s => s.headId === head.id);
+        if (loopScope) exit.cx = loopScope.bypassTrackX;
+        // Continue on the exit column instead of folding back to the old axis.
+        cx = exit.cx;
         last = exit;
         y = exit.y + exit.h + GAP;
         if (boundary) {
@@ -741,8 +752,11 @@ export function buildFlowFromCpp(
         }
       }
     }
-    const bottom = Math.max(y - GAP, 0);
-    if (options.exampleStyle && items.length && !functionBody) node('brace', '}', cx - 42, bottom + 4, items[items.length - 1].sourceLines);
+    let bottom = Math.max(y - GAP, 0);
+    if (options.exampleStyle && braces && !functionBody) {
+      const close = node('brace', '}', cx - 42, bottom + 4, [braces.closeLine]);
+      bottom = close.y + close.h;
+    }
     return { first, last, bottom, normal };
   };
   if (!rawCode.trim()) return { nodes, edges, nextId };
@@ -771,14 +785,15 @@ export function buildFlowFromCpp(
         edge(start, comment, { from: null, fromEdge: signatureEdge.id, fromPort: 'edge', toPort: 'left', style: 'dashed' });
       }
     }
-    const res = build(ast, 0, signature.y + signature.h + GAP, signature, [], endJoin, true);
+    const res = build(ast, 0, signature.y + signature.h + GAP, signature, [], endJoin, true, {openLine:fn.openBraceLine,closeLine:fn.closeBraceLine});
+    endJoin.cx = res.last?.cx ?? signature.cx;
+    end.cx = endJoin.cx;
     endJoin.y = res.bottom + GAP;
     end.y = endJoin.y + endJoin.h + GAP;
     if (res.normal && res.last) edge(res.last, endJoin);
     edge(endJoin, end);
     if (options.exampleStyle) {
-      if (!ast.length) node('brace', '{', -42, signature.y + signature.h + 4, [fn.openBraceLine]);
-      node('brace', '}', -42, end.y + end.h + 8, [fn.closeBraceLine]);
+      node('brace', '}', end.cx + end.w / 2 + 34, end.y + end.h + 8, [fn.closeBraceLine]);
     }
     const fnNodes = nodes.slice(startIndex);
     const bounds = getSubtreeBounds(nodes, edges, fnNodes, []);
@@ -803,6 +818,7 @@ export function buildFlowFromCpp(
       }
     }
   }
+  if (options.exampleStyle) placeBraceDecorations(nodes, edges);
   return { nodes, edges, nextId };
 }
 

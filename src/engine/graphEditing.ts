@@ -1,5 +1,13 @@
 import { FlowNode, FlowEdge } from '../types/flow';
 
+/** A short link between two routing points continues a bus; incoming branches
+ * and loop returns retain their directional arrow at the junction. */
+export function hasFlowArrow(edge: FlowEdge, nodes: FlowNode[]): boolean {
+  if (edge.style === 'dashed') return false;
+  const junction = (id: string | null) => nodes.some(n=>n.id===id && n.type==='connector' && !n.text.trim() && n.w<=8 && n.h<=8);
+  return !(edge.style === 'ortho' && !edge.fromEdge && !edge.toEdge && junction(edge.from) && junction(edge.to));
+}
+
 /** Local multi-input merges are flowline junctions, not numbered references. */
 export function normalizeFlowJunctions(nodes: FlowNode[], edges: FlowEdge[]): FlowNode[] {
   return nodes.map(n => {

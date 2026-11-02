@@ -1,4 +1,4 @@
-import { normalizeFlowJunctions, alignedEdges } from './engine/graphEditing';
+import { normalizeFlowJunctions, alignedEdges, hasFlowArrow } from './engine/graphEditing';
 import { getLineAnchor, getLineAnchorPoint } from './engine/orthoRouter';
 import { normalizeSubprogramShapes } from './engine/userSubprograms';
 import { Workflow, PanelLeftClose, PanelLeftOpen, Undo2, Redo2, Frame, Pencil, AlignCenter, Clipboard, Download, ZoomIn, ZoomOut, Scan, Check } from 'lucide-react';
@@ -1905,6 +1905,7 @@ export default function App() {
         '&#xa;'
       );
       const isDashed = e.style === 'dashed';
+      const arrowStyle = hasFlowArrow(e, nodes) ? 'endArrow=classic;' : 'endArrow=none;';
       const edgeStyle = isDashed
         ? 'edgeStyle=orthogonalEdgeStyle;rounded=0;dashed=1;endArrow=none;html=1;strokeWidth=2;'
         : 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;';
@@ -1913,7 +1914,7 @@ export default function App() {
       const terminals = points.length ? `<mxPoint x="${points[0].x}" y="${points[0].y}" as="sourcePoint"/><mxPoint x="${points.at(-1)!.x}" y="${points.at(-1)!.y}" as="targetPoint"/>` : '';
       const src = e.fromEdge ? e.fromEdge : e.from;
       const tgt = e.toEdge ? e.toEdge : e.to;
-      cells += `<mxCell id="${e.id}" value="${lbl}" style="${edgeStyle}" edge="1" parent="1" source="${
+      cells += `<mxCell id="${e.id}" value="${lbl}" style="${edgeStyle}${arrowStyle}" edge="1" parent="1" source="${
         src || ''
       }" target="${tgt || ''}">
         <mxGeometry relative="1" as="geometry">${terminals}<Array as="points">${route}</Array></mxGeometry>
@@ -2847,7 +2848,7 @@ export default function App() {
                         d={pathD}
                         className="flow-edge-line"
                         strokeDasharray={e.style === 'dashed' ? '6,5' : undefined}
-                        markerEnd={e.style === 'dashed' ? undefined : 'url(#arrowHead)'}
+                        markerEnd={hasFlowArrow(e, nodes) ? 'url(#arrowHead)' : undefined}
                       />
 
                       {/* Draw.io-стиль: перетаскивание любого сегмента 1-к-1 за мышью и кнопка + для добавления изгиба */}

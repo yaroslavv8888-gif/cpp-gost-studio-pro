@@ -907,6 +907,15 @@ export function getLoopRoutingScopes(nodes: FlowNode[], edges: FlowEdge[]): Loop
     scope.loopTrackIndex=descendants.length?1+Math.max(...descendants.map(c=>c.loopTrackIndex)):0;
     scope.minBodyX=Math.min(scope.minBodyX,...descendants.map(c=>c.returnTrackX));
     scope.maxBodyX=Math.max(scope.maxBodyX,...descendants.map(c=>c.bypassTrackX));
+    // Conditional/switch bypasses also occupy channels inside a loop. Reserve
+    // their real extent before choosing the enclosing loop's exit column.
+    for (const e of edges.filter(e=>e.style==='bypass_right' && scope.nodeIds.includes(e.from||'') && scope.nodeIds.includes(e.to||''))) {
+      if (scopes.some(s=>s.headId===e.from || s.conditionId===e.from)) continue;
+      const from=byId.get(e.from!)!,to=byId.get(e.to!)!;
+      const region=nodes.filter(n=>n.fnId===from.fnId && n.y+n.h>=from.y && n.y<=to.y && n.type!=='brace' && n.type!=='comment');
+      const lower=edges.filter(x=>x.style==='bypass_right' && x.to!==e.to).map(x=>byId.get(x.from||'')).filter(n=>n&&n.fnId===from.fnId&&n.y>from.y&&n.y<to.y).length;
+      scope.maxBodyX=Math.max(scope.maxBodyX,...region.map(n=>n.cx+n.w/2+32+lower*16));
+    }
     scope.returnTrackX=scope.minBodyX-BASE_MARGIN-scope.loopTrackIndex*TRACK_GAP;
     scope.bypassTrackX=scope.maxBodyX+BASE_MARGIN+scope.loopTrackIndex*TRACK_GAP;
     complete.add(scope.headId);
@@ -1169,6 +1178,36 @@ export function getEdgeMidpoint(nodes: FlowNode[], edges: FlowEdge[], edge: Flow
   return getPolylineMidpoint(pts);
 }
 
+/** Decorations do not take part in routing. Place them only after all channels
+ * have been allocated, so actual braces cannot obscure a flowline or a block. */
+export function placeBraceDecorations(nodes: FlowNode[], edges: FlowEdge[]): void {
+  const paths = edges.map(e => getEdgePoints(nodes, edges, e)).filter((p): p is Point[] => !!p);
+  const occupied = nodes.filter(n => n.type !== 'brace' && !isJunction(n));
+  const candidates = [] as { dx: number; dy: number }[];
+  for (let dy = -88; dy <= 88; dy += 44)
+    for (let dx = -264; dx <= 264; dx += 22) candidates.push({ dx, dy });
+  candidates.sort((a,b) => Math.abs(a.dx)+2*Math.abs(a.dy)-Math.abs(b.dx)-2*Math.abs(b.dy));
+  for (const brace of nodes.filter(n => n.type === 'brace')) {
+    const collides = (cx: number, y: number) => {
+      const l=cx-brace.w/2-4,r=cx+brace.w/2+4,t=y-4,b=y+brace.h+4;
+      if (y < 0 || occupied.some(n => n.cx+n.w/2>l && n.cx-n.w/2<r && n.y+n.h>t && n.y<b)) return true;
+      return paths.some(p => p.slice(1).some((q,i) => {
+        const a=p[i];
+        return a.x===q.x ? a.x>=l&&a.x<=r&&Math.max(a.y,q.y)>=t&&Math.min(a.y,q.y)<=b
+          : a.y>=t&&a.y<=b&&Math.max(a.x,q.x)>=l&&Math.min(a.x,q.x)<=r;
+      }));
+    };
+    const spot=candidates.find(c=>!collides(brace.cx+c.dx,brace.y+c.dy));
+    if (spot) { brace.cx+=spot.dx; brace.y+=spot.dy; }
+    else {
+      let x=Math.min(...nodes.map(n=>n.cx-n.w/2),...paths.flat().map(p=>p.x))-brace.w-12;
+      while(collides(x,Math.max(0,brace.y))) x-=brace.w+12;
+      brace.cx=x; brace.y=Math.max(0,brace.y);
+    }
+    occupied.push(brace);
+  }
+}
+
 export interface SnapTargetResult {
   kind: 'node' | 'edge';
   nodeId?: string;
@@ -1301,8 +1340,8 @@ export function getSubtreeBounds(
 export function shiftSubtree(nodeSlice: FlowNode[], dx: number, dy = 0) {
   if (!nodeSlice || (dx === 0 && dy === 0)) return;
   nodeSlice.forEach((n) => {
-    n.cx = Math.round(n.cx + dx);
-    n.y = Math.round(n.y + dy);
+    n.cx += dx;
+    n.y += dy;
   });
 }
 
