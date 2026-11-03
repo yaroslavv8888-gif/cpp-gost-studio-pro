@@ -34,9 +34,9 @@ const following=graph.nodes.find(n=>n.text.includes('for (int k'))!;
 assert(following.cx>loops[0].cx+loops[0].w/2,'next group is shifted to the exit column');
 const conditional=graph.nodes.find(n=>n.control?.kind==='if')!;
 const join=graph.nodes.find(n=>n.id===conditional.control!.joinId)!;
-const incoming=graph.edges.filter(e=>e.to===join.id||graph.edges.some(link=>link.from===e.to&&link.to===join.id));
+const incoming=graph.edges.filter(e=>e.to===join.id);
 const levels=incoming.filter(e=>e.from===conditional.id||graph.nodes.find(n=>n.id===e.from)?.type!=='connector').map(e=>getEdgePoints(graph.nodes,graph.edges,e)!.at(-1)!.y);
-assert(new Set(levels).size>=2,'branch arrows meet the continuation at separate heights');
+assert.equal(new Set(levels).size,1,'branches meet at one common junction');
 const paths=graph.edges.map(e=>getEdgePoints(graph.nodes,graph.edges,e)!).filter(Boolean);
 const intersects=(a:{x:number;y:number},b:{x:number;y:number},n:typeof braces[number])=>{
  const l=n.cx-n.w/2-4,r=n.cx+n.w/2+4,t=n.y-4,d=n.y+n.h+4;
@@ -50,8 +50,6 @@ for(const text of ['int main(){int a[2]={1,2};for(int i=0;i<2;i++) if(a[i]) a[i]
 }
 assert(synthesizeCppFromGraph(graph.nodes,graph.edges).code.includes('A[j+1]=t;'));
 assert(!validateGostFlowchart(graph.nodes,graph.edges).some(i=>/^edge_(overlap|node_intersection)_/.test(i.id)),'no geometry diagnostics');
-console.log('Real scope braces, staggered merges, stepped loop exits and unobstructed decorations passed.');
+console.log('Real scope braces, common merges, stepped loop exits and unobstructed decorations passed.');
 
-const trunk=graph.edges.find(e=>e.to===join.id && graph.nodes.find(n=>n.id===e.from)?.type==='connector')!;
-assert.equal(hasFlowArrow(trunk,graph.nodes),false,'no arrow on the common continuation');
 for(const edge of graph.edges.filter(e=>e.style==='loop_left')) assert(hasFlowArrow(edge,graph.nodes),'return arrows retained');

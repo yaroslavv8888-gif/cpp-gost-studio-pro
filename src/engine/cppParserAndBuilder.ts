@@ -572,7 +572,15 @@ export function buildFlowFromCpp(
   };
   type Scope = { breakTarget: FlowNode; continueTarget?: FlowNode };
   type Sequence = { first: FlowNode | null; last: FlowNode | null; bottom: number; normal: boolean };
-  const GAP = 44;
+  const seed = (options.layoutSeed || 0) >>> 0;
+  let randomState = seed;
+  const deviation = (max: number) => {
+    if (!seed) return 0;
+    randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0;
+    return Math.floor(randomState / 4294967296 * (max + 1));
+  };
+  // Variation changes clearances, never independent node coordinates or ports.
+  const GAP = 44 + (seed ? seed % 13 : 0);
   const build = (items: AstItem[], cx: number, y: number, previous: FlowNode | null,
     scopes: Scope[], functionExit: FlowNode, functionBody = false, braces?: ScopeBraces): Sequence => {
     let first: FlowNode | null = null;
@@ -596,14 +604,13 @@ export function buildFlowFromCpp(
         const rightNodes = nodes.slice(rightStart);
         const rb = getSubtreeBounds(nodes, edges, rightNodes, []);
         // Position complete subtrees, including every nested sibling and loop body.
-        shiftSubtree(leftNodes, Math.min(cx - d.w / 2 - 84, cx - 64 - (lb?.maxX || 0)));
-        shiftSubtree(rightNodes, Math.max(cx + d.w / 2 + 84, cx + 64 - (rb?.minX || 0)));
-        join.y = Math.max(top, yes.bottom, no.bottom) + GAP + 22;
-        const upperJoin = yes.normal && no.normal ? node('connector', '', cx, join.y - 22, item.sourceLines) : join;
-        if (upperJoin !== join) edge(upperJoin, join);
-        edge(d, yes.first || upperJoin, { fromPort: 'left', toPort: yes.first ? 'top' : 'left', rightLabel: '1' });
+        const branchGap = deviation(12);
+        shiftSubtree(leftNodes, Math.min(cx - d.w / 2 - 84 - branchGap, cx - 64 - branchGap - (lb?.maxX || 0)));
+        shiftSubtree(rightNodes, Math.max(cx + d.w / 2 + 84 + branchGap, cx + 64 + branchGap - (rb?.minX || 0)));
+        join.y = Math.max(top, yes.bottom, no.bottom) + GAP;
+        edge(d, yes.first || join, { fromPort: 'left', toPort: yes.first ? 'top' : 'left', rightLabel: '1' });
         edge(d, no.first || join, { fromPort: 'right', toPort: no.first ? 'top' : 'right', rightLabel: '0', style: no.first ? 'ortho' : 'bypass_right' });
-        if (yes.first && yes.normal && yes.last) edge(yes.last, upperJoin, { toPort: 'left' });
+        if (yes.first && yes.normal && yes.last) edge(yes.last, join, { toPort: 'left' });
         if (no.first && no.normal && no.last) edge(no.last, join, { toPort: 'right' });
         d.control = { kind: 'if', joinId: join.id, yesId: yes.first?.id, noId: no.first?.id, expression: item.cond };
         normal = yes.normal || no.normal;
@@ -639,7 +646,7 @@ export function buildFlowFromCpp(
           const res=build(g.stmts,0,row,null,scope,functionExit,false,g.hasBraces ? {openLine:g.openBraceLine!,closeLine:g.closeBraceLine!}:undefined);
           const bodyNodes=nodes.slice(start);
           const linear=g.stmts.every(s=>!['if','switch','loop','dowhile'].includes(s.kind));
-          const left=cx+Math.max(header.w/2,...ownDiamonds.map(d=>d.w/2),90)+90;
+          const left=cx+Math.max(header.w/2,...ownDiamonds.map(d=>d.w/2),90)+90+deviation(12);
           let bottom:number;
           const functional=bodyNodes.filter(n=>n.type!=='brace');
           if(linear) {
@@ -694,8 +701,8 @@ export function buildFlowFromCpp(
           y += boundary.h + GAP;
         }
         const text = post ? '' : options.showKeywords ? `${item.loopType} (${item.header})` : item.header || '';
-        const entry = post ? null : node('connector', '', cx, y, item.sourceLines);
-        const head = node(post ? 'connector' : item.loopType === 'for' ? 'prep' : 'decision', text, cx, post ? y : y + GAP + 2, item.sourceLines);
+        const entry = !post && item.loopType === 'while' ? node('connector', '', cx, y, item.sourceLines) : null;
+        const head = node(post ? 'connector' : item.loopType === 'for' ? 'prep' : 'decision', text, cx, entry ? y + GAP + 2 : y, item.sourceLines);
         attach(entry || head);
         if (entry) edge(entry, head);
         y = head.y;
@@ -705,7 +712,7 @@ export function buildFlowFromCpp(
         const res = build(item.body || [], cx, bodyTop, null,
           [...scopes, { breakTarget: exit, continueTarget: conditionJoin }], functionExit, false, item.bodyBraces);
         const bodyEntry = res.first || conditionJoin;
-        edge(head, bodyEntry, { rightLabel: post ? '' : '1', toPort: bodyEntry === conditionJoin && !post ? 'left' : 'top', style: bodyEntry === conditionJoin && !post ? 'loop_left' : 'ortho' });
+        edge(head, bodyEntry, { rightLabel: post ? '' : '1', toPort: bodyEntry === conditionJoin && !!entry ? 'left' : 'top', style: bodyEntry === conditionJoin && !!entry ? 'loop_left' : 'ortho' });
         y = Math.max(bodyTop, res.bottom) + GAP;
         if (post) {
           conditionJoin.y = y;
@@ -717,7 +724,14 @@ export function buildFlowFromCpp(
           edge(cond, exit, { fromPort: 'right', toPort: 'right', rightLabel: '0', style: 'bypass_right' });
           head.control = { kind: 'dowhile', joinId: exit.id, bodyId: res.first?.id, conditionId: cond.id, expression: item.cond, keyword: conditionJoin.id };
         } else {
-          if (res.normal && res.last) edge(res.last, conditionJoin, { toPort: 'left', style: 'loop_left', bendOffsetY: Math.max(0, res.bottom - res.last.y - res.last.h) });
+          if (entry) {
+            if (res.normal && res.last) edge(res.last, entry, { toPort: 'left', style: 'loop_left', bendOffsetY: Math.max(0, res.bottom - res.last.y - res.last.h) });
+          } else {
+            // All for-loop completions and continues share one return inlet.
+            conditionJoin.y = y;
+            if (res.normal && res.last) edge(res.last, conditionJoin);
+            edge(conditionJoin, head, { toPort: 'left', style: 'loop_left' });
+          }
           exit.y = y + GAP;
           edge(head, exit, { fromPort: 'right', toPort: 'right', rightLabel: '0', style: 'bypass_right' });
           head.control = { kind: 'loop', joinId: exit.id, bodyId: res.first?.id, keyword: item.loopType, expression: item.header };

@@ -95,6 +95,9 @@ export interface GostStampData {
 }
 
 export interface CodeGenOptions {
+  /** UI chooses a new seed only when generating a new diagram. */
+  varyLayout?: boolean;
+  layoutSeed?: number;
   exampleStyle: boolean;
   showKeywords: boolean;
   gostLoopBounds: boolean;

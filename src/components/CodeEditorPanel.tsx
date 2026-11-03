@@ -461,6 +461,14 @@ export const CodeEditorPanel: React.FC<CodeEditorPanelProps> = ({
         <label className="checkbox-row">
           <input
             type="checkbox"
+            checked={!!options.varyLayout}
+            onChange={(e) => onChangeOptions({ ...options, varyLayout: e.target.checked })}
+          />
+          <span>Небольшие случайные отступы при построении</span>
+        </label>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
             checked={options.exampleStyle}
             onChange={(e) => onChangeOptions({ ...options, exampleStyle: e.target.checked })}
           />

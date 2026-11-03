@@ -883,9 +883,9 @@ export function getLoopRoutingScopes(nodes: FlowNode[], edges: FlowEdge[]): Loop
   edges.forEach(e=>{if(e.from) outgoing.set(e.from,[...(outgoing.get(e.from)||[]),e]);});
   const scopes: LoopRoutingScope[]=nodes.filter(n=>n.control?.kind==='loop'||n.control?.kind==='dowhile').map(head=>{
     const control=head.control!,exit=byId.get(control.joinId);
-    const entry=control.kind==='dowhile'?head:byId.get(edges.find(e=>e.to===head.id&&e.style!=='loop_left')?.from||'')||head;
+    const entry=control.kind==='dowhile'||control.keyword==='for'?head:byId.get(edges.find(e=>e.to===head.id&&e.style!=='loop_left')?.from||'')||head;
     const ids=new Set<string>([head.id,entry.id]);
-    const queue=[control.bodyId,control.conditionId].filter(Boolean) as string[];
+    const queue=[control.bodyId,control.conditionId,...edges.filter(e=>e.to===entry.id && e.style==='loop_left').map(e=>e.from)].filter(Boolean) as string[];
     while(queue.length) {
       const id=queue.pop()!;
       if(ids.has(id)||id===control.joinId) continue;

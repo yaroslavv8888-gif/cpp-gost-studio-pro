@@ -23,7 +23,7 @@ for(const fixture of ['matrix2','matrix3','bubble','wide'] as const){
   });
   const loops=g.nodes.filter(n=>n.control?.kind==='loop').sort((a,b)=>b.y-a.y);
   const channels=loops.map(head=>{
-    const entry=g.edges.find(e=>e.to===head.id)!.from;
+    const entry=scopes.find(s=>s.headId===head.id)!.entryId;
     const back=g.edges.find(e=>e.to===entry && e.style==='loop_left')!;
     assert.ok(back,'loop has a return channel');
     const pts=getEdgePoints(g.nodes,g.edges,back)!;

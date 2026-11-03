@@ -87,6 +87,7 @@ export default function App() {
   });
 
   const [options, setOptions] = useState<CodeGenOptions>({
+    varyLayout: true,
     exampleStyle: true,
     showKeywords: true,
     gostLoopBounds: false,
@@ -298,11 +299,19 @@ export default function App() {
     setPanY(Math.round(38 - bounds.minY * newScale));
   }, []);
 
+  const lastLayoutVariant = useRef(-1);
+
   // Generate Flowchart from C++ code
   const runGenerateFromCpp = useCallback(
     (sourceCode: string, genOpts: CodeGenOptions, shouldCenter = false) => {
       setInlineEditor((prev) => ({ ...prev, open: false }));
-      const built = buildFlowFromCpp(sourceCode, genOpts);
+      let layoutSeed = 0;
+      if (genOpts.varyLayout) {
+        layoutSeed = crypto.getRandomValues(new Uint32Array(1))[0] || 1;
+        if (layoutSeed % 13 === lastLayoutVariant.current) layoutSeed = layoutSeed === 0xffffffff ? 1 : layoutSeed + 1;
+        lastLayoutVariant.current = layoutSeed % 13;
+      }
+      const built = buildFlowFromCpp(sourceCode, { ...genOpts, layoutSeed });
       setNodes(built.nodes);
       setEdges(built.edges);
       setNextId(built.nextId);
@@ -2226,7 +2235,8 @@ export default function App() {
               newOpts.exampleStyle !== options.exampleStyle ||
               newOpts.showKeywords !== options.showKeywords ||
               newOpts.gostLoopBounds !== options.gostLoopBounds ||
-              newOpts.groupStmts !== options.groupStmts
+              newOpts.groupStmts !== options.groupStmts ||
+              newOpts.varyLayout !== options.varyLayout
             ) {
               runGenerateFromCpp(code, newOpts, false);
             }
