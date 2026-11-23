@@ -38,6 +38,8 @@ export type EdgeStyle =
 export type CanvasTheme = 'whatman' | 'blueprint' | 'dark_drafting';
 
 export interface FlowNode {
+  /** File-scope C++ declarations shown alongside the function entry. */
+  cppPreamble?: boolean;
   /** Paired visual loop delimiters around the explicit condition topology. */
   loopBoundary?: boolean;
   /** Structured boundaries retained for editable, lossless C++ synthesis. */

@@ -144,10 +144,44 @@ interface ExtractedFunc {
   closeBraceLine: number;
 }
 
-function extractAllCppFunctions(maskedCode: string): ExtractedFunc[] {
+function extractFileStructures(code: string) {
+  const ranges: { start: number; end: number }[] = [];
+  const names = new Set<string>();
+  const tokens = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\b(?:typedef\s+)?struct\b\s*(?:([A-Za-z_]\w*)\s*)?([{;])|[{}]/g;
+  let depth = 0;
+  let match: RegExpExecArray | null;
+  while ((match = tokens.exec(code)) !== null) {
+    if (match[0] === '{') depth++;
+    if (match[0] === '}') depth--;
+    if (!match[2]) continue;
+    if (depth !== 0) {
+      if (match[2] === '{') depth++;
+      continue;
+    }
+    let end = tokens.lastIndex - 1;
+    if (match[2] === '{') {
+      const body = extractBalancedBlock(code, end, '{', '}');
+      end = findNextSemicolonOutsideQuotes(code, body.endIdx + 1);
+      if (end < 0) continue;
+      if (match[0].startsWith('typedef')) {
+        const alias = code.slice(body.endIdx + 1, end).trim();
+        if (/^[A-Za-z_]\w*$/.test(alias)) names.add(alias);
+      }
+    }
+    if (match[1]) names.add(match[1]);
+    ranges.push({ start: match.index, end: end + 1 });
+    tokens.lastIndex = end + 1;
+  }
+  return { ranges, names };
+}
+
+function extractAllCppFunctions(maskedCode: string, structureNames: Set<string>): ExtractedFunc[] {
   const funcs: ExtractedFunc[] = [];
-  const funcRegex =
-    /((?:unsigned\s+|long\s+|short\s+|const\s+|static\s+|inline\s+)*(?:void|int|double|float|char|bool|string|auto|size_t)\s*\*?\s+([a-zA-Z_]\w*)\s*\([^)]*\))\s*\{/g;
+  const types = ['void', 'int', 'double', 'float', 'char', 'bool', 'string', 'auto', 'size_t', 'long', 'short', 'unsigned', 'signed', ...structureNames];
+  const funcRegex = new RegExp(
+    String.raw`((?:(?:unsigned|signed|long|short|const|static|inline|struct)\s+)*(?:${types.join('|')})\b(?:\s+|\s*[*&]+\s*)([a-zA-Z_]\w*)\s*\([^)]*\))\s*\{`,
+    'g',
+  );
   let match: RegExpExecArray | null;
   let lastEnd = 0;
 
@@ -174,7 +208,8 @@ function extractAllCppFunctions(maskedCode: string): ExtractedFunc[] {
 }
 
 function classifySimpleStatement(rawStmt: string, userFuncNames: Set<string>, sourceLines: number[]): AstItem | null {
-  const stmt = rawStmt.trim();
+  // Keep an aggregate initializer or local struct definition in one operation.
+  const stmt = rawStmt.includes('{') ? rawStmt.trim().replace(/\s*\r?\n[ \t]*/g, ' ') : rawStmt.trim();
   if (!stmt || stmt === ';') return null;
   // Never treat a stray `int main()` header inside a function body as a regular statement
   if (/^(?:(?:int|void)\s+)?main\s*\([^)]*\)\s*$/i.test(stmt)) return null;
@@ -197,7 +232,7 @@ function classifySimpleStatement(rawStmt: string, userFuncNames: Set<string>, so
   }
   const withoutLiterals = stmt.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g, '');
   if (/^(?:std::)?setlocale\s*\(/.test(stmt)) return { kind: 'setlocale', text: stmt, sourceLines };
-  const declaration = /^(?:(?:const|static|constexpr|volatile|unsigned|signed|long|short)\s+)*(?:(?:std::)?(?:vector|array|deque|list|map|set|unordered_map|unordered_set|basic_string|string)\b|(?:int|double|float|long|short|char|bool|size_t|auto)\b)/.test(withoutLiterals);
+  const declaration = /^(?:(?:const|static|constexpr|volatile|unsigned|signed|long|short)\s+)*(?:(?:std::)?(?:vector|array|deque|list|map|set|unordered_map|unordered_set|basic_string|string)\b|(?:int|double|float|long|short|char|bool|size_t|auto|struct)\b)/.test(withoutLiterals);
   // Direct construction of a variable/container is a declaration, while a
   // call to a user subprogram in an assignment remains a predefined process.
   const directInitialization = declaration && !withoutLiterals.includes('=');
@@ -774,8 +809,16 @@ export function buildFlowFromCpp(
     return { first, last, bottom, normal };
   };
   if (!rawCode.trim()) return { nodes, edges, nextId };
-  const masked = maskPreservingNewlines(rawCode);
-  let funcs = extractAllCppFunctions(masked);
+  const cleanCode = maskPreservingNewlines(rawCode);
+  const structures = extractFileStructures(cleanCode);
+  const maskedChars = cleanCode.split('');
+  for (const { start, end } of structures.ranges) {
+    for (let i = start; i < end; i++) {
+      if (maskedChars[i] !== '\n') maskedChars[i] = ' ';
+    }
+  }
+  const masked = maskedChars.join('');
+  let funcs = extractAllCppFunctions(masked, structures.names);
   if (!funcs.length) funcs = [{ name: 'main', header: 'int main()', body: masked, bodyOffset: 0, headerLines: [1], openBraceLine: 1, closeBraceLine: rawCode.split('\n').length }];
   const names = new Set(funcs.map(f => f.name));
   funcs.sort((a, b) => a.name === 'main' ? -1 : b.name === 'main' ? 1 : 0);
@@ -792,9 +835,14 @@ export function buildFlowFromCpp(
     const signature = node('predefined', fn.header, 0, start.y + start.h + GAP, fn.headerLines);
     const signatureEdge = edge(start, signature);
     if (index === 0) {
-      const headers = rawCode.split('\n').map((text, i) => ({ text: text.trim(), i: i + 1 })).filter(l => l.text.startsWith('#include') || /^using\s+namespace\b/.test(l.text));
-      if (headers.length) {
-        const comment = node('comment', headers.map(l => l.text).join('\n'), 0, 30, headers.map(l => l.i));
+      const headers = rawCode.split('\n').map((text, i) => ({ text: text.trim(), lines: [i + 1] })).filter(l => l.text.startsWith('#include') || /^using\s+namespace\b/.test(l.text));
+      const preamble = headers.concat(structures.ranges.map(({ start, end }) => ({
+        text: rawCode.slice(start, end),
+        lines: getLineRange(rawCode, start, end - 1),
+      }))).sort((a, b) => a.lines[0] - b.lines[0]);
+      if (preamble.length) {
+        const comment = node('comment', preamble.map(l => l.text).join('\n'), 0, 30, [...new Set(preamble.flatMap(l => l.lines))]);
+        if (structures.ranges.length) comment.cppPreamble = true;
         comment.cx = Math.max(start.w, signature.w) / 2 + 60 + comment.w / 2;
         edge(start, comment, { from: null, fromEdge: signatureEdge.id, fromPort: 'edge', toPort: 'left', style: 'dashed' });
       }
@@ -861,13 +909,14 @@ export function synthesizeCppFromGraph(
 
   // 1. Collect #include and using namespace from comment blocks or default header
   const headerComments = clonedNodes.filter(
-    (n) => n.type === 'comment' && (n.text.includes('#include') || n.text.includes('using namespace'))
+    (n) => n.type === 'comment' && (n.cppPreamble || n.text.includes('#include') || n.text.includes('using namespace'))
   );
 
   if (headerComments.length > 0) {
     headerComments.forEach((hc) => {
       hc.text.split('\n').forEach((ln) => {
-        if (ln.trim()) pushLine(ln.trim(), [hc.id]);
+        if (hc.cppPreamble) pushLine(ln, [hc.id]);
+        else if (ln.trim()) pushLine(ln.trim(), [hc.id]);
       });
     });
   } else {

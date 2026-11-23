@@ -9,6 +9,28 @@ import { LOOP_IF_CODE, TRIANGLE_IF_CODE, COMPLEX_CPP_CODE, SWITCH_CASE_CODE } fr
 
 const prefix = '#include <iostream>\nusing namespace std;\n';
 const fixtures = [
+  {
+    name: 'structures',
+    code: prefix + [
+      'struct Point;',
+      'struct Point { int x; int y; int sum() const { return x + y; } };',
+      'Point makePoint(int x) { return Point{x, x + 1}; }',
+      'int main() {',
+      '  struct Offset { int value; };',
+      '  Offset offset{2};',
+      '  Point points[] = {',
+      '    makePoint(offset.value),',
+      '    {4, 5}',
+      '  };',
+      '  Point* p = &points[1];',
+      '  p->y += points[0].x;',
+      '  cout << p->sum();',
+      '  return 0;',
+      '}',
+    ].join('\n'),
+    inputs: [''],
+  },
+  {name:'structure_without_headers',code:'struct Result { int code; };\nint main(){Result r{3};return r.code;}',inputs:['']},
   {name:'case_scope',code:'int main(){int x=1;switch(x){case 1:{int y=1;return y;}case 2:{int y=2;return y;}}return 0;}',inputs:['']},
   {name:'switch',code:SWITCH_CASE_CODE,inputs:['1','2','3','4','9']},
   {name:'triangle',code:TRIANGLE_IF_CODE,inputs:['3 3 3','3 3 4','3 4 5','1 1 4']},

@@ -2,7 +2,8 @@ import { FlowEdge, FlowNode } from '../types/flow';
 
 /** Recognize the function headers retained for reverse C++ generation. */
 export function functionHeaderName(text: string): string | undefined {
-  return text.trim().match(/^(?:(?:unsigned|long|short|const|static|inline)\s+)*(?:void|int|double|float|char|bool|string|auto|size_t)\s*\*?\s+([A-Za-z_]\w*)\s*\([^;{}]*\)$/)?.[1];
+  const match = text.trim().match(/^(?:(?:unsigned|signed|long|short|const|static|inline|struct)\s+)*[A-Za-z_]\w*\b(?:\s+|\s*[*&]+\s*)([A-Za-z_]\w*)\s*\([^;{}]*\)$/);
+  return match && !/^(?:return|throw|new|delete|co_return)\b/.test(match[0]) ? match[1] : undefined;
 }
 
 export function userSubprogramNames(nodes: FlowNode[], edges: FlowEdge[]): Set<string> {
